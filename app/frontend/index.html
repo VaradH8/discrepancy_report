@@ -194,8 +194,8 @@
   </section><!-- /panelXref -->
 
   <section class="panel" id="panelReg">
-  <h1>Keep only equipment in the master register.</h1>
-  <p class="lede">Takes the discrepancy from your comparison and drops every row whose <b>EquipmentName</b> isn't in the bundled master list (<i>Equipment List to Inventive</i>). What's left is the registered-only discrepancy spreadsheet — same columns, fewer rows.</p>
+  <h1>Registered changes, tagged global vs local.</h1>
+  <p class="lede">Combines your <b>comparison</b> and <b>cross-reference</b>: keeps only equipment in the master register (<i>Equipment List to Inventive</i>), and rewrites each change as <b class="tag-add">GLOBALLY / LOCALLY ADDED</b> or <b class="tag-rem">GLOBALLY / LOCALLY REMOVED</b> — <i>global</i> = the cross-reference found it nowhere else, <i>local</i> = it exists on other sheets.</p>
 
   <div class="basis" id="regBasis"></div>
 
@@ -292,6 +292,7 @@ document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () =>
 
 /* ---------- cross-reference (tab 2, chained from tab 1) ---------- */
 let lastCompare = null;
+let lastXref = null;   // {sheet, scope:{tag: "GLOBALLY ADDED"|...}} — feeds tab 3
 const xrefFiles = [];
 
 function refreshBasis(){
@@ -367,6 +368,15 @@ $("xrefRun").addEventListener("click", async () => {
     $("xrefTable").innerHTML =
       `<table class="xr"><thead><tr><th>Equipment</th><th>From</th><th>Spotted on</th><th>Verdict</th><th>Detail</th><th>Also found in</th></tr></thead><tbody>${rows}</tbody></table>`;
     $("xrefOut").classList.add("show");
+    // carry the global/local verdict to the Registered tab
+    lastXref = { sheet: lastCompare.sheet, scope: {} };
+    results.forEach(x => {
+      const lab = x.status==="ADDED"   ? (x.exists_elsewhere ? "LOCALLY ADDED"   : "GLOBALLY ADDED")
+                : x.status==="REMOVED" ? (x.exists_elsewhere ? "LOCALLY REMOVED" : "GLOBALLY REMOVED")
+                : null;
+      if(lab) lastXref.scope[x.tag] = lab;
+    });
+    refreshReg();
   }catch(e){ $("xrefErr").textContent="× "+e.message; $("xrefErr").classList.add("show"); }
   finally{ btn.innerHTML=old; refreshXrefRun(); }
 });
@@ -376,15 +386,17 @@ let masterCount = null;
 fetch("/health").then(r=>r.json()).then(j=>{ masterCount = j.master_count; refreshReg(); }).catch(()=>{});
 
 function refreshReg(){
-  const b = $("regBasis"), have = !!(files.ref && files.cand);
-  const reg = $("regRun"); if(reg) reg.disabled = !have;
+  const b = $("regBasis"), have = !!(files.ref && files.cand), xref = !!lastXref;
+  const reg = $("regRun"); if(reg) reg.disabled = !(have && xref);
   if(!b) return;
-  const master = masterCount==null ? "the bundled register" : `<b>${masterCount}</b> equipment in the register`;
+  const master = masterCount==null ? "the register" : `<b>${masterCount}</b> registered equipment`;
   if(!have){
-    b.innerHTML = `<span class="none">No drawings selected.</span> Pick the baseline and revision on the <b>Compare</b> tab — this tab reuses those same two files, runs the diff, and keeps only rows found in ${master}.`;
+    b.innerHTML = `<span class="none">No drawings selected.</span> Run the <b>Compare</b> tab first — its two files are reused here.`;
+  } else if(!xref){
+    b.innerHTML = `<span class="none">Cross-reference not run.</span> Run the <b>Cross-reference</b> tab next — it decides GLOBALLY vs LOCALLY. This tab then filters to ${master} and writes that verdict into each row's Status.`;
   } else {
-    b.innerHTML = `Reuses <code>${files.ref.name}</code> → <code>${files.cand.name}</code> from the Compare tab. `
-      + `Rows whose <b>EquipmentName</b> isn't in ${master} are dropped; the rest become the registered-only report.`;
+    b.innerHTML = `Reuses <code>${files.ref.name}</code> → <code>${files.cand.name}</code> + the cross-reference verdict. `
+      + `Rows not in ${master} are dropped; ADDED/REMOVED rows become <b class="tag-add">GLOBALLY/LOCALLY ADDED</b> / <b class="tag-rem">…REMOVED</b>.`;
   }
 }
 refreshReg();
@@ -397,19 +409,25 @@ $("regRun").addEventListener("click", async () => {
     const sheet = $("sheet").value || "SHT";
     const fd=new FormData();
     fd.append("reference",files.ref); fd.append("candidate",files.cand); fd.append("sheet",sheet);
+    fd.append("scope", JSON.stringify((lastXref&&lastXref.scope)||{}));
     const r=await fetch("/registered",{method:"POST",body:fd});
     if(!r.ok){ const t=await r.text(); throw new Error(t||("HTTP "+r.status)); }
     const kept=r.headers.get("X-Kept"), dropped=r.headers.get("X-Dropped");
     const add=r.headers.get("X-Added"), rem=r.headers.get("X-Removed");
-    let droppedNames=[]; try{ droppedNames=JSON.parse(r.headers.get("X-Dropped-Names")||"[]"); }catch(_){}
+    let scope={}, droppedNames=[];
+    try{ scope=JSON.parse(r.headers.get("X-Scope")||"{}"); }catch(_){}
+    try{ droppedNames=JSON.parse(r.headers.get("X-Dropped-Names")||"[]"); }catch(_){}
     const blob=await r.blob();
     $("regDl").href=URL.createObjectURL(blob); $("regDl").download=sheet+"_Discrepancy_Registered.xlsx";
     const addArr=(add&&add!=="-")?add.split(","):[], remArr=(rem&&rem!=="-")?rem.split(","):[];
     $("rKept").textContent=kept; $("rDropped").textContent=dropped;
     $("rAdd").textContent=addArr.length; $("rRem").textContent=remArr.length;
-    let html="";
-    if(addArr.length) html+=`<div class="row"><span>ADDED</span><span class="tag-add">${addArr.join("   ")}</span></div>`;
-    if(remArr.length) html+=`<div class="row"><span>REMOVED</span><span class="tag-rem">${remArr.join("   ")}</span></div>`;
+    const grp=(label,arr,cls)=> (arr&&arr.length)
+      ? `<div class="row"><span>${label}</span><span class="${cls}">${arr.join("   ")}</span></div>` : "";
+    let html = grp("GLOBAL ADD", scope["GLOBALLY ADDED"],   "tag-add")
+             + grp("LOCAL ADD",  scope["LOCALLY ADDED"],    "tag-add")
+             + grp("GLOBAL REM", scope["GLOBALLY REMOVED"], "tag-rem")
+             + grp("LOCAL REM",  scope["LOCALLY REMOVED"],  "tag-rem");
     if(droppedNames.length){
       const more = (+dropped) > droppedNames.length ? `  …+${(+dropped)-droppedNames.length} more` : "";
       html+=`<div class="row"><span>DROPPED</span><span style="color:var(--sub)">${droppedNames.join("   ")}${more}</span></div>`;

@@ -80,16 +80,24 @@ def registered_endpoint(
     reference: UploadFile = File(..., description="Issued / baseline DWG"),
     candidate: UploadFile = File(..., description="New / candidate DWG"),
     sheet: str = Form("SHT"),
+    scope: str = Form("{}", description='JSON {EquipmentName: "GLOBALLY ADDED"|...} from the cross-reference'),
 ):
     """Same discrepancy diff as /compare, but rows whose EquipmentName is not in
-    the bundled master register (Equipment List to Inventive) are dropped."""
+    the bundled master register (Equipment List to Inventive) are dropped, and
+    each ADDED/REMOVED row's Status is replaced by the cross-reference verdict
+    (GLOBALLY/LOCALLY ADDED|REMOVED) supplied in `scope`."""
+    try:
+        scope_map = json.loads(scope)
+    except (ValueError, TypeError) as e:
+        raise HTTPException(400, f"bad scope JSON: {e}")
     tmp = tempfile.mkdtemp(prefix="dwgreg_")
     try:
         ref = _save(reference, tmp)
         cand = _save(candidate, tmp)
         out = os.path.join(tmp, f"{sheet}_Discrepancy_Registered.xlsx")
         try:
-            xlsx, stats, dropped = compare_registered(ref, cand, sheet_name=sheet, out_xlsx=out)
+            xlsx, stats, dropped = compare_registered(
+                ref, cand, sheet_name=sheet, out_xlsx=out, scope=scope_map)
         except RuntimeError as e:
             raise HTTPException(422, str(e))
         return FileResponse(
@@ -103,9 +111,10 @@ def registered_endpoint(
                 "X-Both": str(stats["both"]),
                 "X-Added": ",".join(stats["added"]) or "-",
                 "X-Removed": ",".join(stats["removed"]) or "-",
+                "X-Scope": json.dumps(stats["scope"], separators=(",", ":")),
                 "X-Dropped-Names": json.dumps(dropped[:300], separators=(",", ":")),
                 "Access-Control-Expose-Headers":
-                    "X-Kept,X-Dropped,X-Master,X-Both,X-Added,X-Removed,X-Dropped-Names",
+                    "X-Kept,X-Dropped,X-Master,X-Both,X-Added,X-Removed,X-Scope,X-Dropped-Names",
             },
         )
     except HTTPException:

@@ -179,20 +179,33 @@ def load_master(path=MASTER_FILE):
     _MASTER = allow
     return _MASTER
 
-def compare_registered(ref_dwg, cand_dwg, sheet_name="SHT", out_xlsx=None, allow=None):
-    """Discrepancy report with every row whose EquipmentName isn't in the master
-    register removed. Returns (xlsx_path, stats, dropped_names)."""
+SCOPE_LABELS = ("GLOBALLY ADDED", "LOCALLY ADDED", "GLOBALLY REMOVED", "LOCALLY REMOVED")
+
+def compare_registered(ref_dwg, cand_dwg, sheet_name="SHT", out_xlsx=None, allow=None, scope=None):
+    """Discrepancy report filtered to the master register, with each ADDED/REMOVED
+    row's Status replaced by the cross-reference verdict (GLOBALLY/LOCALLY ADDED or
+    REMOVED) supplied in `scope` = {EquipmentName: label}. Rows not in the register
+    are dropped. Returns (xlsx_path, stats, dropped_names)."""
     allow = load_master() if allow is None else allow
+    scope = {_norm(k): v for k, v in (scope or {}).items()}
     rows, stats = _diff(ref_dwg, cand_dwg, sheet_name)
     kept    = [r for r in rows if _norm(r["EquipmentName"]) in allow]
     dropped = [r["EquipmentName"] for r in rows if _norm(r["EquipmentName"]) not in allow]
+    # Merge the cross-reference verdict into the Status text.
+    for r in kept:
+        lab = scope.get(_norm(r["EquipmentName"]))
+        if lab in SCOPE_LABELS:
+            r["Status"] = lab
+    groups = {lab: sorted(r["EquipmentName"] for r in kept if r["Status"] == lab)
+              for lab in SCOPE_LABELS}
     # Headline counts reflect the filtered report, so the UI/summary match the rows.
     fstats = dict(stats)
     fstats["both"]    = sum(1 for r in kept if r["Status"] == "PRESENT IN BOTH")
-    fstats["added"]   = sorted(r["EquipmentName"] for r in kept if r["Status"] == "ADDED")
-    fstats["removed"] = sorted(r["EquipmentName"] for r in kept if r["Status"] == "REMOVED")
+    fstats["added"]   = sorted(r["EquipmentName"] for r in kept if "ADDED" in r["Status"])
+    fstats["removed"] = sorted(r["EquipmentName"] for r in kept if "REMOVED" in r["Status"])
     fstats["kept"], fstats["dropped"] = len(kept), len(dropped)
     fstats["master_count"] = len(allow)
+    fstats["scope"] = groups
     xlsx = _write(kept, fstats, sheet_name, out_xlsx)
     return xlsx, fstats, dropped
 
@@ -361,7 +374,8 @@ def _write(rows, stats, sheet_name, out_xlsx):
         cell.alignment=Alignment(horizontal="center",vertical="center",wrap_text=True)
     for r in rows:
         ws.append([r[c] for c in COLS]); rr=ws.max_row
-        fill=ADD if r["Status"]=="ADDED" else REM if r["Status"]=="REMOVED" else BOTH
+        # substring match so GLOBALLY/LOCALLY ADDED|REMOVED colour like ADDED/REMOVED
+        fill=ADD if "ADDED" in r["Status"] else REM if "REMOVED" in r["Status"] else BOTH
         for c in range(1,len(COLS)+1):
             cell=ws.cell(rr,c);cell.font=base;cell.border=B
             if c==2: cell.fill=fill
@@ -383,6 +397,13 @@ def _write(rows, stats, sheet_name, out_xlsx):
       [f"   candidate: {stats['cand_geom']} geometry, {stats['cand_datums']} datum markers"],
       [f"   movement computable: {'YES' if stats['movement_ok'] else 'NO — a side lacks datum-marked positions'}"],
     ]
+    if stats.get("scope"):
+        g = stats["scope"]
+        rows_sm += [[""], ["Cross-reference scope (registered rows):"],
+            [f"   GLOBALLY ADDED   : {len(g['GLOBALLY ADDED'])}  -> {', '.join(g['GLOBALLY ADDED'])}"],
+            [f"   LOCALLY ADDED    : {len(g['LOCALLY ADDED'])}  -> {', '.join(g['LOCALLY ADDED'])}"],
+            [f"   GLOBALLY REMOVED : {len(g['GLOBALLY REMOVED'])}  -> {', '.join(g['GLOBALLY REMOVED'])}"],
+            [f"   LOCALLY REMOVED  : {len(g['LOCALLY REMOVED'])}  -> {', '.join(g['LOCALLY REMOVED'])}"]]
     for L in rows_sm: sm.append(L)
     sm["A1"].font=Font(bold=True,size=12,name="Arial"); sm.column_dimensions["A"].width=95
     for r in range(2,sm.max_row+1): sm.cell(r,1).font=base
