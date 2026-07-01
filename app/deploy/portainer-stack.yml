@@ -16,7 +16,7 @@
 # or pin a specific tag instead of :latest (Actions also tags with the commit sha).
 services:
   app:
-    image: ghcr.io/OWNER/REPO:latest   # <-- replace OWNER/REPO
+    image: ghcr.io/varadh8/discrepancy_report:latest
     restart: unless-stopped
     environment:
       PORT: "8000"
