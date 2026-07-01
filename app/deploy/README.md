@@ -28,6 +28,16 @@ short commit sha. No secrets to configure — it uses the built-in `GITHUB_TOKEN
 Health check once up: `curl -fsS http://<host>:8000/health` →
 `{"ok":true,"dwg2dxf":true,"master_count":909}`.
 
+### Two stack files
+
+- [`portainer-stack.yml`](portainer-stack.yml) — single-node **compose** (Docker
+  Desktop / standalone Portainer). Publishes port 8000 directly.
+- [`swarm-stack.yml`](swarm-stack.yml) — **Swarm** service behind the shared
+  external **Traefik** (no published ports; Traefik owns 80/443). Set the stack
+  env var `PUBLIC_HOST=discrepancy.<your-domain>` and ensure the GHCR package is
+  public (or add a `ghcr.io` registry credential in Portainer). Stateless: no DB,
+  no volumes, no node pinning.
+
 ---
 
 # discrepancy.inventivebizsol.co.in (Caddy compose)

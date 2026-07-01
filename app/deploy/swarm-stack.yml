@@ -1,0 +1,53 @@
+# Production stack for the shared Inventive Swarm (Portainer → Stacks → add,
+# build method: Web editor / Repository; deploy to the Swarm).
+#
+# Ingress goes through the existing external Traefik reverse proxy, which
+# terminates TLS on the `websecure` entrypoint (cert resolver `le`) and routes
+# ${PUBLIC_HOST} -> app:8000. There is NO Caddy and NO published host ports
+# here — Traefik owns 80/443.
+#
+# This app is STATELESS: DWG->DXF conversion and the .xlsx build run in per-
+# request temp dirs, and the equipment register is baked into the image. So
+# there is no database, no named volume, no backups, and no node pinning — it
+# can schedule on any node that can pull the image from GHCR.
+#
+# Required stack env var:  PUBLIC_HOST = discrepancy.<your-domain>
+# The GHCR package must be public, OR add a ghcr.io registry credential in
+# Portainer (Registries → Add → Custom), since Swarm pulls (can't build).
+
+services:
+  app:
+    # Built in GitHub Actions and pushed to GHCR. Swarm can't build images.
+    image: ghcr.io/varadh8/discrepancy_report:latest
+    environment:
+      PORT: "8000"
+    networks:
+      - traefik-public
+    healthcheck:
+      # Image ships python3 (no curl); hit /health with stdlib urllib.
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      labels:
+        # Same Traefik swarm provider conventions as the shared stack:
+        # entrypoint `websecure` (:443), cert resolver `le`, ingress network
+        # traefik-public. http->https redirect is global on this Traefik.
+        - "traefik.enable=true"
+        - "traefik.constraint-label=traefik-public"
+        - "traefik.http.routers.discrepancy.rule=Host(`${PUBLIC_HOST}`)"
+        - "traefik.http.routers.discrepancy.entrypoints=websecure"
+        - "traefik.http.routers.discrepancy.tls=true"
+        - "traefik.http.routers.discrepancy.tls.certresolver=le"
+        # The app listens on 8000
+        - "traefik.http.services.discrepancy.loadbalancer.server.port=8000"
+
+networks:
+  # Traefik's shared ingress network (already exists on the Swarm).
+  traefik-public:
+    external: true
