@@ -1,21 +1,22 @@
-# Portainer stack — app only (no Caddy). Portainer / your own reverse proxy
-# handles TLS and routing; this just publishes the app on port 8000.
+# Portainer stack — pulls the prebuilt image from GHCR (built by GitHub Actions).
 #
 # Deploy in Portainer:
-#   Stacks → Add stack → Build method: Repository
-#     Repository URL : <your git remote>
-#     Compose path   : app/deploy/portainer-stack.yml
-#   Portainer clones the repo and builds the image on the host (first build
-#   compiles LibreDWG — a few minutes). No external registry required.
+#   Stacks → Add stack → Build method: Web editor (paste this) or Repository
+#   Set the image below to your repo's GHCR path, then deploy.
 #
-# If instead you deploy a prebuilt image, delete the `build:` block and keep
-# `image: <registry>/dwg-discrepancy:latest`.
+# GHCR path = ghcr.io/<github-owner>/<repo>  (all lowercase). Example:
+#   ghcr.io/varadhadawale/dwg-discrepancy:latest
+#
+# The GHCR package is PRIVATE by default. Either:
+#   • make it public (repo → Packages → package → Package settings → Change visibility), or
+#   • add a registry credential in Portainer (Registries → Add → Custom):
+#       URL: ghcr.io   user: <github username>   password: a PAT with read:packages
+#
+# To roll out a new build, re-pull: Portainer → this stack → Update (Re-pull image),
+# or pin a specific tag instead of :latest (Actions also tags with the commit sha).
 services:
   app:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    image: dwg-discrepancy:latest
+    image: ghcr.io/OWNER/REPO:latest   # <-- replace OWNER/REPO
     restart: unless-stopped
     environment:
       PORT: "8000"
