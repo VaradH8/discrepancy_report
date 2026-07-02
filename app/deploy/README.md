@@ -28,6 +28,21 @@ short commit sha. No secrets to configure — it uses the built-in `GITHUB_TOKEN
 Health check once up: `curl -fsS http://<host>:8000/health` →
 `{"ok":true,"dwg2dxf":true,"master_count":909}`.
 
+### DWG decoding (LibreDWG vs ODA) & DXF
+
+The app accepts **`.dwg` and `.dxf`**. `.dxf` is parsed directly (best reliability —
+skip it if a DWG won't decode). `.dwg` is converted by **ODA File Converter** when
+present, else **LibreDWG**. LibreDWG fails on some newer/complex DWGs
+("address out of bounds / Template section not found"); ODA reads every AutoCAD
+version and fixes that class of errors.
+
+**Enable ODA:** get the Linux `.deb` URL from
+<https://www.opendesign.com/guestfiles/oda_file_converter> (accept their licence),
+then add a repo **Actions variable** `ODA_URL` (Settings → Secrets and variables →
+Actions → Variables). The next build bundles it; `/health` then shows `"oda":true`.
+Note: ODA's licence restricts redistribution — if you bundle it, keep the GHCR
+package **private** (pull with a credential) rather than public.
+
 ### Two stack files
 
 - [`portainer-stack.yml`](portainer-stack.yml) — single-node **compose** (Docker

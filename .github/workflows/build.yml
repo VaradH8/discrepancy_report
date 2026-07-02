@@ -45,5 +45,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Set repo variable ODA_URL (Settings → Secrets and variables → Actions
+          # → Variables) to the ODA File Converter .deb URL to bundle it. Empty =
+          # LibreDWG-only build (unchanged).
+          build-args: |
+            ODA_URL=${{ vars.ODA_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

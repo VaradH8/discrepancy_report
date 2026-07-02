@@ -9,7 +9,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from pipeline import compare, cross_reference, compare_registered, load_master
+from pipeline import compare, cross_reference, compare_registered, load_master, has_oda
 
 app = FastAPI(title="DWG Discrepancy")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -27,12 +27,13 @@ def index():
 @app.get("/health")
 def health():
     import shutil
-    return {"ok": True, "dwg2dxf": bool(shutil.which("dwg2dxf")), "master_count": len(load_master())}
+    return {"ok": True, "dwg2dxf": bool(shutil.which("dwg2dxf")),
+            "oda": has_oda(), "master_count": len(load_master())}
 
 
 def _save(upload: UploadFile, folder: str) -> str:
-    if not upload.filename.lower().endswith(".dwg"):
-        raise HTTPException(400, f"{upload.filename}: expected a .dwg file")
+    if not upload.filename.lower().endswith((".dwg", ".dxf")):
+        raise HTTPException(400, f"{upload.filename}: expected a .dwg or .dxf file")
     path = os.path.join(folder, os.path.basename(upload.filename))
     with open(path, "wb") as f:
         f.write(upload.file.read())

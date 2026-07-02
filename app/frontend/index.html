@@ -131,14 +131,14 @@
     <label class="slot ref" id="slotRef">
       <span class="corner">01</span>
       <span class="role">Reference · issued</span>
-      <span class="hint">Drop the baseline .dwg, or click to choose</span>
-      <input type="file" id="ref" accept=".dwg">
+      <span class="hint">Drop the baseline .dwg / .dxf, or click to choose</span>
+      <input type="file" id="ref" accept=".dwg,.dxf">
     </label>
     <label class="slot cand" id="slotCand">
       <span class="corner">02</span>
       <span class="role">Candidate · new revision</span>
-      <span class="hint">Drop the new .dwg, or click to choose</span>
-      <input type="file" id="cand" accept=".dwg">
+      <span class="hint">Drop the new .dwg / .dxf, or click to choose</span>
+      <input type="file" id="cand" accept=".dwg,.dxf">
     </label>
   </div>
 
@@ -170,8 +170,8 @@
 
   <label class="dropbig" id="xrefDrop">
     <span class="big">Drop all drawings in the set, or click to choose</span>
-    <span class="small">Upload every sheet to check against — the more complete the set, the more reliable the verdict. <code>.dwg</code> files only.</span>
-    <input type="file" id="xrefFiles" accept=".dwg" multiple>
+    <span class="small">Upload every sheet to check against — the more complete the set, the more reliable the verdict. <code>.dwg</code> or <code>.dxf</code> files.</span>
+    <input type="file" id="xrefFiles" accept=".dwg,.dxf" multiple>
   </label>
   <div class="filelist" id="xrefList"></div>
 
@@ -325,7 +325,7 @@ function refreshXrefRun(){
   $("xrefRun").disabled = !(lastCompare && tagsN > 0 && xrefFiles.length > 0);
 }
 function addXrefFiles(list){
-  for(const f of list){ if(f.name.toLowerCase().endsWith(".dwg") && !xrefFiles.some(x=>x.name===f.name&&x.size===f.size)) xrefFiles.push(f); }
+  for(const f of list){ if(/\.(dwg|dxf)$/i.test(f.name) && !xrefFiles.some(x=>x.name===f.name&&x.size===f.size)) xrefFiles.push(f); }
   renderXrefList();
 }
 $("xrefFiles").addEventListener("change", e => addXrefFiles(e.target.files));

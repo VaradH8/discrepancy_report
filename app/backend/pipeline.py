@@ -3,7 +3,7 @@ DWG discrepancy pipeline — reference vs candidate -> formatted Excel.
 Engine extracted from the validated notebook workflow.
 Requires `dwg2dxf` (LibreDWG) on PATH for DWG->DXF conversion.
 """
-import os, re, math, subprocess, tempfile
+import os, re, math, shutil, subprocess, tempfile
 import ezdxf
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -11,11 +11,48 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 TAG = re.compile(r'^[A-Z]{1,3}(-[A-Z]{1,3})?-?\d{4,8}[A-Z]?(-\d{1,2})?$')
 
 def dwg_to_dxf(dwg_path, dxf_path):
+    """DWG->DXF via LibreDWG's dwg2dxf. Fallback converter."""
     r = subprocess.run(["dwg2dxf", "-o", dxf_path, dwg_path],
                        capture_output=True, text=True)
     if not os.path.exists(dxf_path):
         raise RuntimeError(f"DWG->DXF failed: {r.stderr[-400:]}")
     return dxf_path
+
+def has_oda():
+    """True if the ODA File Converter is installed (preferred DWG decoder)."""
+    return shutil.which("ODAFileConverter") is not None
+
+def _oda_to_dxf(dwg_path, work):
+    """DWG->DXF via the ODA File Converter (headless, through xvfb). ODA converts
+    a whole folder, so stage the file alone and pull the single .dxf back out.
+    ODA reads every AutoCAD version, so it handles files LibreDWG can't decode."""
+    ind = os.path.join(work, "oda_in"); outd = os.path.join(work, "oda_out")
+    os.makedirs(ind, exist_ok=True); os.makedirs(outd, exist_ok=True)
+    shutil.copyfile(dwg_path, os.path.join(ind, "input.dwg"))
+    # ODAFileConverter <in> <out> <out-ver> <out-type> <recurse> <audit> [filter]
+    subprocess.run(["xvfb-run", "-a", "ODAFileConverter", ind, outd,
+                    "ACAD2018", "DXF", "0", "1", "*.dwg"],
+                   capture_output=True, text=True, timeout=600)
+    out = os.path.join(outd, "input.dxf")
+    if os.path.exists(out):
+        return out
+    hits = [f for f in os.listdir(outd) if f.lower().endswith(".dxf")]
+    if hits:
+        return os.path.join(outd, hits[0])
+    raise RuntimeError("ODA File Converter produced no DXF")
+
+def _to_dxf(src_path, out_dxf, work):
+    """Return a DXF path for a .dwg or .dxf source. A .dxf is used as-is (no
+    conversion — it's exactly what ezdxf reads). A .dwg is converted with ODA
+    when installed, falling back to LibreDWG."""
+    if src_path.lower().endswith(".dxf"):
+        return src_path
+    if has_oda():
+        try:
+            return _oda_to_dxf(src_path, work)
+        except Exception:
+            pass  # ODA missing/failed -> try LibreDWG
+    return dwg_to_dxf(src_path, out_dxf)
 
 _CODE_RE = re.compile(r'^\s*(\d{1,4})\s*$')
 
@@ -98,8 +135,8 @@ def _diff(ref_dwg, cand_dwg, sheet_name="SHT"):
     """Reference vs candidate -> (rows, stats). The shared engine behind compare()
     and compare_registered(); does the DWG scan and builds the discrepancy rows."""
     with tempfile.TemporaryDirectory() as tmp:
-        ref_dxf  = dwg_to_dxf(ref_dwg,  os.path.join(tmp, "ref.dxf"))
-        cand_dxf = dwg_to_dxf(cand_dwg, os.path.join(tmp, "cand.dxf"))
+        ref_dxf  = _to_dxf(ref_dwg,  os.path.join(tmp, "ref.dxf"),  tmp)
+        cand_dxf = _to_dxf(cand_dwg, os.path.join(tmp, "cand.dxf"), tmp)
         OLD, DAT,  ogeom = _scan(ref_dxf)
         NEW, DATC, cgeom = _scan(cand_dxf)
 
@@ -210,9 +247,9 @@ def compare_registered(ref_dwg, cand_dwg, sheet_name="SHT", out_xlsx=None, allow
     return xlsx, fstats, dropped
 
 def scan_drawing(dwg_path):
-    """DWG -> {tag: (x, y)} tag-set with positions. One drawing, no diff."""
+    """DWG/DXF -> {tag: (x, y)} tag-set with positions. One drawing, no diff."""
     with tempfile.TemporaryDirectory() as tmp:
-        dxf = dwg_to_dxf(dwg_path, os.path.join(tmp, "d.dxf"))
+        dxf = _to_dxf(dwg_path, os.path.join(tmp, "d.dxf"), tmp)
         tags, _datums, _geom = _scan(dxf)
     return tags
 
