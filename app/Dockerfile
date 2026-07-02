@@ -30,10 +30,12 @@ RUN ldconfig
 ARG ODA_URL=""
 RUN if [ -n "$ODA_URL" ]; then \
       apt-get update && \
-      apt-get install -y --no-install-recommends xvfb curl ca-certificates && \
+      apt-get install -y --no-install-recommends xvfb curl ca-certificates libxcb-util1 && \
       curl -fL "$ODA_URL" -o /tmp/oda.deb && \
       apt-get install -y --no-install-recommends /tmp/oda.deb && \
       rm -f /tmp/oda.deb && rm -rf /var/lib/apt/lists/* && \
+      # Ubuntu 22/24 ship libxcb-util.so.1; ODA's Qt build wants .so.0 (per ODA docs)
+      ln -sf /usr/lib/x86_64-linux-gnu/libxcb-util.so.1 /usr/lib/x86_64-linux-gnu/libxcb-util.so.0 && \
       command -v ODAFileConverter ; \
     else echo "ODA_URL not set -> DWG conversion uses LibreDWG only"; fi
 
