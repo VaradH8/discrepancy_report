@@ -112,19 +112,39 @@ def _read_dxf(dxf_path):
             return doc
 
 def _scan(dxf_path):
+    """Extract {tag: (x,y)}, datum points, geometry count, and an entity-type
+    histogram from a DXF. Reads equipment tags from TEXT, MTEXT, and block
+    ATTRIBs — different CAD/converters (e.g. ODA vs LibreDWG) store the same tag
+    as any of these, so scanning only TEXT misses them."""
     doc = _read_dxf(dxf_path); msp = doc.modelspace()
-    tags, datums, geom = {}, [], 0
+    tags, datums, geom, hist = {}, [], 0, {}
+    def _add(s, x, y):
+        s = (s or "").strip()
+        if TAG.match(s):
+            tags.setdefault(s, (round(x, 2), round(y, 2)))
     for e in msp:
         t = e.dxftype()
+        hist[t] = hist.get(t, 0) + 1
         if t == "TEXT":
-            s = e.dxf.text.strip()
-            if TAG.match(s):
-                tags.setdefault(s, (round(e.dxf.insert.x, 2), round(e.dxf.insert.y, 2)))
-        elif t == "INSERT" and "DATUM" in e.dxf.name.upper():
-            datums.append((e.dxf.insert.x, e.dxf.insert.y))
+            ins = e.dxf.insert; _add(e.dxf.text, ins.x, ins.y)
+        elif t == "MTEXT":
+            ins = e.dxf.insert
+            try: s = e.plain_text()
+            except Exception: s = getattr(e, "text", "")
+            _add(s, ins.x, ins.y)
+        elif t == "INSERT":
+            ins = e.dxf.insert
+            if "DATUM" in e.dxf.name.upper():
+                datums.append((ins.x, ins.y))
+            try:  # equipment tags are often block attributes, not free TEXT
+                for a in e.attribs:
+                    ai = a.dxf.insert if a.dxf.hasattr("insert") else ins
+                    _add(a.dxf.text, ai.x, ai.y)
+            except Exception:
+                pass
         elif t in ("LINE", "LWPOLYLINE", "POLYLINE", "ARC", "SPLINE", "HATCH"):
             geom += 1
-    return tags, datums, geom
+    return tags, datums, geom, hist
 
 def _nearest(pt, pts):
     if not pts: return ("", "")
@@ -143,8 +163,8 @@ def _diff(ref_dwg, cand_dwg, sheet_name="SHT"):
     with tempfile.TemporaryDirectory() as tmp:
         ref_dxf  = _to_dxf(ref_dwg,  os.path.join(tmp, "ref.dxf"),  tmp)
         cand_dxf = _to_dxf(cand_dwg, os.path.join(tmp, "cand.dxf"), tmp)
-        OLD, DAT,  ogeom = _scan(ref_dxf)
-        NEW, DATC, cgeom = _scan(cand_dxf)
+        OLD, DAT,  ogeom, ohist = _scan(ref_dxf)
+        NEW, DATC, cgeom, chist = _scan(cand_dxf)
 
     both, added, removed = set(OLD)&set(NEW), set(NEW)-set(OLD), set(OLD)-set(NEW)
     # A side is a real layout only if it has geometry AND datum-point markers.
@@ -156,6 +176,11 @@ def _diff(ref_dwg, cand_dwg, sheet_name="SHT"):
     swapped = (ogeom < 200 and len(DAT) == 0 and cgeom > 200 and len(DATC) > 0)
     warning = ("Files may be in the wrong slots: the reference has no geometry/datum markers "
                "but the candidate does. Put the full-layout DWG in the Reference slot.") if swapped else ""
+    if not warning and not OLD and not NEW:
+        _top = lambda h: ", ".join(f"{k}:{v}" for k, v in sorted(h.items(), key=lambda kv: -kv[1])[:6]) or "empty"
+        warning = ("No equipment tags matched in either drawing (entity mix — "
+                   f"reference[{_top(ohist)}], candidate[{_top(chist)}]). If the tags live in "
+                   "xrefs or nested blocks, upload the DXF export instead.")
     rows = []
     for t in sorted(set(OLD)|set(NEW)):
         r = {c: "" for c in COLS}; r["EquipmentName"]=t; r["Sheet"]=sheet_name
@@ -256,7 +281,7 @@ def scan_drawing(dwg_path):
     """DWG/DXF -> {tag: (x, y)} tag-set with positions. One drawing, no diff."""
     with tempfile.TemporaryDirectory() as tmp:
         dxf = _to_dxf(dwg_path, os.path.join(tmp, "d.dxf"), tmp)
-        tags, _datums, _geom = _scan(dxf)
+        tags, _datums, _geom, _hist = _scan(dxf)
     return tags
 
 
