@@ -440,7 +440,7 @@ def _write(rows, stats, sheet_name, out_xlsx):
       [f"   candidate: {stats['cand_geom']} geometry, {stats['cand_datums']} datum markers"],
       [f"   movement computable: {'YES' if stats['movement_ok'] else 'NO — a side lacks datum-marked positions'}"],
     ]
-    if stats.get("scope"):
+    if stats.get("scope") and any(stats["scope"].values()):
         g = stats["scope"]
         rows_sm += [[""], ["Cross-reference scope (registered rows):"],
             [f"   GLOBALLY ADDED   : {len(g['GLOBALLY ADDED'])}  -> {', '.join(g['GLOBALLY ADDED'])}"],

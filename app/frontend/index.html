@@ -195,7 +195,7 @@
 
   <section class="panel" id="panelReg">
   <h1>Registered changes, tagged global vs local.</h1>
-  <p class="lede">Combines your <b>comparison</b> and <b>cross-reference</b>: keeps only equipment in the master register (<i>Equipment List to Inventive</i>), and rewrites each change as <b class="tag-add">GLOBALLY / LOCALLY ADDED</b> or <b class="tag-rem">GLOBALLY / LOCALLY REMOVED</b> — <i>global</i> = the cross-reference found it nowhere else, <i>local</i> = it exists on other sheets.</p>
+  <p class="lede">Keeps only equipment in the master register (<i>Equipment List to Inventive</i>) from your comparison. If you've also run the <b>cross-reference</b>, each change is rewritten as <b class="tag-add">GLOBALLY / LOCALLY ADDED</b> or <b class="tag-rem">GLOBALLY / LOCALLY REMOVED</b> — <i>global</i> = found nowhere else, <i>local</i> = exists on other sheets. The cross-reference is optional; without it, rows keep plain ADDED / REMOVED.</p>
 
   <div class="basis" id="regBasis"></div>
 
@@ -387,13 +387,14 @@ fetch("/health").then(r=>r.json()).then(j=>{ masterCount = j.master_count; refre
 
 function refreshReg(){
   const b = $("regBasis"), have = !!(files.ref && files.cand), xref = !!lastXref;
-  const reg = $("regRun"); if(reg) reg.disabled = !(have && xref);
+  const reg = $("regRun"); if(reg) reg.disabled = !have;   // cross-reference is optional
   if(!b) return;
   const master = masterCount==null ? "the register" : `<b>${masterCount}</b> registered equipment`;
   if(!have){
     b.innerHTML = `<span class="none">No drawings selected.</span> Run the <b>Compare</b> tab first — its two files are reused here.`;
   } else if(!xref){
-    b.innerHTML = `<span class="none">Cross-reference not run.</span> Run the <b>Cross-reference</b> tab next — it decides GLOBALLY vs LOCALLY. This tab then filters to ${master} and writes that verdict into each row's Status.`;
+    b.innerHTML = `Reuses <code>${files.ref.name}</code> → <code>${files.cand.name}</code>, filtered to ${master}. `
+      + `<b>Cross-reference not run</b> — rows keep plain ADDED / REMOVED. Run the <b>Cross-reference</b> tab first if you want <b class="tag-add">GLOBALLY / LOCALLY</b> labels (optional).`;
   } else {
     b.innerHTML = `Reuses <code>${files.ref.name}</code> → <code>${files.cand.name}</code> + the cross-reference verdict. `
       + `Rows not in ${master} are dropped; ADDED/REMOVED rows become <b class="tag-add">GLOBALLY/LOCALLY ADDED</b> / <b class="tag-rem">…REMOVED</b>.`;
@@ -424,10 +425,14 @@ $("regRun").addEventListener("click", async () => {
     $("rAdd").textContent=addArr.length; $("rRem").textContent=remArr.length;
     const grp=(label,arr,cls)=> (arr&&arr.length)
       ? `<div class="row"><span>${label}</span><span class="${cls}">${arr.join("   ")}</span></div>` : "";
-    let html = grp("GLOBAL ADD", scope["GLOBALLY ADDED"],   "tag-add")
-             + grp("LOCAL ADD",  scope["LOCALLY ADDED"],    "tag-add")
-             + grp("GLOBAL REM", scope["GLOBALLY REMOVED"], "tag-rem")
-             + grp("LOCAL REM",  scope["LOCALLY REMOVED"],  "tag-rem");
+    const hasScope = ["GLOBALLY ADDED","LOCALLY ADDED","GLOBALLY REMOVED","LOCALLY REMOVED"]
+      .some(k => (scope[k]||[]).length);
+    let html = hasScope
+      ? grp("GLOBAL ADD", scope["GLOBALLY ADDED"],   "tag-add")
+      + grp("LOCAL ADD",  scope["LOCALLY ADDED"],    "tag-add")
+      + grp("GLOBAL REM", scope["GLOBALLY REMOVED"], "tag-rem")
+      + grp("LOCAL REM",  scope["LOCALLY REMOVED"],  "tag-rem")
+      : grp("ADDED", addArr, "tag-add") + grp("REMOVED", remArr, "tag-rem");
     if(droppedNames.length){
       const more = (+dropped) > droppedNames.length ? `  …+${(+dropped)-droppedNames.length} more` : "";
       html+=`<div class="row"><span>DROPPED</span><span style="color:var(--sub)">${droppedNames.join("   ")}${more}</span></div>`;
