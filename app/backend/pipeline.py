@@ -5,6 +5,7 @@ Requires `dwg2dxf` (LibreDWG) on PATH for DWG->DXF conversion.
 """
 import os, re, math, shutil, subprocess, tempfile
 import ezdxf
+from ezdxf.math import Vec3
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
@@ -130,41 +131,76 @@ def _scan(dxf_path):
     """Extract {tag: (x,y)}, datum points, geometry count, and an entity-type
     histogram from a DXF. Equipment tags may be free TEXT/MTEXT, block ATTRIBs,
     or TEXT nested inside block references (a converter like ODA keeps the block
-    structure a DXF export would flatten). So we read text at the top level AND
-    recursively explode INSERTs (virtual_entities) to reach nested text with
-    correct world positions."""
+    structure a DXF export would flatten).
+
+    Nested text is resolved via a PER-BLOCK-DEFINITION cache: each block's tag
+    texts (with local positions, sub-blocks folded in) are computed once, then
+    every INSERT just matrix-transforms those points to world space. Exploding
+    each insert (virtual_entities) instead is O(inserts x block size) and takes
+    minutes / pegs CPU on 100MB+ layouts — which got the worker killed mid-request."""
     doc = _read_dxf(dxf_path); msp = doc.modelspace()
     tags, datums, geom, hist = {}, [], 0, {}
     def _add(s, x, y):
         s = (s or "").strip()
         if TAG.match(s):
             tags.setdefault(s, (round(x, 2), round(y, 2)))
-    def _walk(entities, depth):
-        nonlocal geom
-        for e in entities:
-            t = e.dxftype()
-            if depth == 0:
-                hist[t] = hist.get(t, 0) + 1
-            tv = _text_xy(e)
-            if tv:
-                _add(*tv)
-            elif t == "INSERT":
-                if "DATUM" in e.dxf.name.upper():
-                    ins = e.dxf.insert; datums.append((ins.x, ins.y))
+
+    cache = {}  # block name -> [(tag_string, Vec3 local position), ...]
+    def _block_tags(name, depth):
+        if name in cache:
+            return cache[name]
+        cache[name] = []          # cycle guard while we recurse
+        out = []
+        if depth >= 0:
+            try:
+                blk = doc.blocks[name]
+            except Exception:
+                blk = None
+            if blk is not None:
+                for e in blk:
+                    tv = _text_xy(e)
+                    if tv:
+                        s = (tv[0] or "").strip()
+                        if TAG.match(s):
+                            out.append((s, Vec3(tv[1], tv[2], 0)))
+                    elif e.dxftype() == "INSERT":
+                        sub = _block_tags(e.dxf.name, depth - 1)
+                        if sub:
+                            try:
+                                m = e.matrix44()
+                            except Exception:
+                                continue
+                            out.extend((s, m.transform(p)) for s, p in sub)
+        cache[name] = out
+        return out
+
+    for e in msp:
+        t = e.dxftype()
+        hist[t] = hist.get(t, 0) + 1
+        tv = _text_xy(e)
+        if tv:
+            _add(*tv)
+        elif t == "INSERT":
+            ins = e.dxf.insert
+            if "DATUM" in e.dxf.name.upper():
+                datums.append((ins.x, ins.y))
+            try:
+                for a in e.attribs:          # per-insert attribute values
+                    av = _text_xy(a)
+                    if av: _add(*av)
+            except Exception:
+                pass
+            sub = _block_tags(e.dxf.name, 3)
+            if sub:
                 try:
-                    for a in e.attribs:      # attributes live on the INSERT
-                        av = _text_xy(a)
-                        if av: _add(*av)
+                    m = e.matrix44()
                 except Exception:
-                    pass
-                if depth < 4:                # descend into the block's own entities
-                    try:
-                        _walk(e.virtual_entities(), depth + 1)
-                    except Exception:
-                        pass
-            elif depth == 0 and t in ("LINE", "LWPOLYLINE", "POLYLINE", "ARC", "SPLINE", "HATCH"):
-                geom += 1
-    _walk(msp, 0)
+                    m = None
+                for s, p in sub:
+                    wp = m.transform(p) if m is not None else p
+                    _add(s, wp.x, wp.y)
+        elif t in ("LINE", "LWPOLYLINE", "POLYLINE", "ARC", "SPLINE", "HATCH"):
+            geom += 1
     return tags, datums, geom, hist
 
 def _nearest(pt, pts):
