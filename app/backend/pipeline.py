@@ -29,30 +29,36 @@ def _oda_to_dxf(dwg_path, work):
     ind = os.path.join(work, "oda_in"); outd = os.path.join(work, "oda_out")
     os.makedirs(ind, exist_ok=True); os.makedirs(outd, exist_ok=True)
     shutil.copyfile(dwg_path, os.path.join(ind, "input.dwg"))
+    # ODA's Qt build writes config under $HOME; give it a writable one.
+    env = dict(os.environ, HOME=work, QT_QPA_PLATFORM="xcb")
     # ODAFileConverter <in> <out> <out-ver> <out-type> <recurse> <audit> [filter]
-    subprocess.run(["xvfb-run", "-a", "ODAFileConverter", ind, outd,
-                    "ACAD2018", "DXF", "0", "1", "*.dwg"],
-                   capture_output=True, text=True, timeout=600)
-    out = os.path.join(outd, "input.dxf")
-    if os.path.exists(out):
-        return out
-    hits = [f for f in os.listdir(outd) if f.lower().endswith(".dxf")]
-    if hits:
-        return os.path.join(outd, hits[0])
-    raise RuntimeError("ODA File Converter produced no DXF")
+    r = subprocess.run(["xvfb-run", "-a", "ODAFileConverter", ind, outd,
+                        "ACAD2018", "DXF", "0", "1", "*.dwg"],
+                       capture_output=True, text=True, timeout=600, env=env)
+    for f in os.listdir(outd):
+        if f.lower().endswith(".dxf"):
+            return os.path.join(outd, f)
+    raise RuntimeError(
+        f"ODA produced no DXF (rc={r.returncode}); "
+        f"stdout={r.stdout[-200:]!r}; stderr={r.stderr[-200:]!r}")
 
 def _to_dxf(src_path, out_dxf, work):
     """Return a DXF path for a .dwg or .dxf source. A .dxf is used as-is (no
     conversion — it's exactly what ezdxf reads). A .dwg is converted with ODA
-    when installed, falling back to LibreDWG."""
+    when installed, falling back to LibreDWG. If both fail, surface both errors."""
     if src_path.lower().endswith(".dxf"):
         return src_path
+    errs = []
     if has_oda():
         try:
             return _oda_to_dxf(src_path, work)
-        except Exception:
-            pass  # ODA missing/failed -> try LibreDWG
-    return dwg_to_dxf(src_path, out_dxf)
+        except Exception as e:
+            errs.append(f"ODA: {e}")
+    try:
+        return dwg_to_dxf(src_path, out_dxf)
+    except Exception as e:
+        errs.append(f"LibreDWG: {e}")
+        raise RuntimeError("DWG->DXF failed — " + " || ".join(errs))
 
 _CODE_RE = re.compile(r'^\s*(\d{1,4})\s*$')
 

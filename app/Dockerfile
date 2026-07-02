@@ -30,7 +30,13 @@ RUN ldconfig
 COPY oda/ /tmp/oda/
 RUN if ls /tmp/oda/*.deb >/dev/null 2>&1; then \
       apt-get update && \
-      apt-get install -y --no-install-recommends xvfb libxcb-util1 && \
+      # xvfb + the Qt6 xcb platform-plugin deps ODA's .deb under-declares
+      # (libxcb-cursor0 is the usual missing one that breaks headless launch).
+      apt-get install -y --no-install-recommends \
+        xvfb fontconfig \
+        libxcb-util1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+        libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+        libxcb-xkb1 libxkbcommon-x11-0 && \
       apt-get install -y --no-install-recommends /tmp/oda/*.deb && \
       # Ubuntu 22/24 ship libxcb-util.so.1; ODA's Qt build wants .so.0 (per ODA docs)
       ln -sf /usr/lib/x86_64-linux-gnu/libxcb-util.so.1 /usr/lib/x86_64-linux-gnu/libxcb-util.so.0 && \
