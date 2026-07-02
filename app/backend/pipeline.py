@@ -111,39 +111,60 @@ def _read_dxf(dxf_path):
             doc, _auditor = recover.readfile(fixed)
             return doc
 
+def _text_xy(e):
+    """(string, x, y) for a text-bearing entity, else None."""
+    t = e.dxftype()
+    if t == "TEXT":
+        ins = e.dxf.insert; return e.dxf.text, ins.x, ins.y
+    if t == "MTEXT":
+        ins = e.dxf.insert
+        try: s = e.plain_text()
+        except Exception: s = getattr(e, "text", "")
+        return s, ins.x, ins.y
+    if t == "ATTRIB":
+        ins = e.dxf.insert if e.dxf.hasattr("insert") else None
+        return e.dxf.text, (ins.x if ins else 0.0), (ins.y if ins else 0.0)
+    return None
+
 def _scan(dxf_path):
     """Extract {tag: (x,y)}, datum points, geometry count, and an entity-type
-    histogram from a DXF. Reads equipment tags from TEXT, MTEXT, and block
-    ATTRIBs — different CAD/converters (e.g. ODA vs LibreDWG) store the same tag
-    as any of these, so scanning only TEXT misses them."""
+    histogram from a DXF. Equipment tags may be free TEXT/MTEXT, block ATTRIBs,
+    or TEXT nested inside block references (a converter like ODA keeps the block
+    structure a DXF export would flatten). So we read text at the top level AND
+    recursively explode INSERTs (virtual_entities) to reach nested text with
+    correct world positions."""
     doc = _read_dxf(dxf_path); msp = doc.modelspace()
     tags, datums, geom, hist = {}, [], 0, {}
     def _add(s, x, y):
         s = (s or "").strip()
         if TAG.match(s):
             tags.setdefault(s, (round(x, 2), round(y, 2)))
-    for e in msp:
-        t = e.dxftype()
-        hist[t] = hist.get(t, 0) + 1
-        if t == "TEXT":
-            ins = e.dxf.insert; _add(e.dxf.text, ins.x, ins.y)
-        elif t == "MTEXT":
-            ins = e.dxf.insert
-            try: s = e.plain_text()
-            except Exception: s = getattr(e, "text", "")
-            _add(s, ins.x, ins.y)
-        elif t == "INSERT":
-            ins = e.dxf.insert
-            if "DATUM" in e.dxf.name.upper():
-                datums.append((ins.x, ins.y))
-            try:  # equipment tags are often block attributes, not free TEXT
-                for a in e.attribs:
-                    ai = a.dxf.insert if a.dxf.hasattr("insert") else ins
-                    _add(a.dxf.text, ai.x, ai.y)
-            except Exception:
-                pass
-        elif t in ("LINE", "LWPOLYLINE", "POLYLINE", "ARC", "SPLINE", "HATCH"):
-            geom += 1
+    def _walk(entities, depth):
+        nonlocal geom
+        for e in entities:
+            t = e.dxftype()
+            if depth == 0:
+                hist[t] = hist.get(t, 0) + 1
+            tv = _text_xy(e)
+            if tv:
+                _add(*tv)
+            elif t == "INSERT":
+                if "DATUM" in e.dxf.name.upper():
+                    ins = e.dxf.insert; datums.append((ins.x, ins.y))
+                try:
+                    for a in e.attribs:      # attributes live on the INSERT
+                        av = _text_xy(a)
+                        if av: _add(*av)
+                except Exception:
+                    pass
+                if depth < 4:                # descend into the block's own entities
+                    try:
+                        _walk(e.virtual_entities(), depth + 1)
+                    except Exception:
+                        pass
+            elif depth == 0 and t in ("LINE", "LWPOLYLINE", "POLYLINE", "ARC", "SPLINE", "HATCH"):
+                geom += 1
+    _walk(msp, 0)
     return tags, datums, geom, hist
 
 def _nearest(pt, pts):
