@@ -16,3 +16,7 @@ Thumbs.db
 # build artifacts
 *.tar
 *.tar.gz
+
+# ODA File Converter .deb is licence-restricted — never commit it (provided via
+# a GitHub Release / local build context instead)
+app/oda/*.deb

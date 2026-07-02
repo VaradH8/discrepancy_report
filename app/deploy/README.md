@@ -36,12 +36,17 @@ present, else **LibreDWG**. LibreDWG fails on some newer/complex DWGs
 ("address out of bounds / Template section not found"); ODA reads every AutoCAD
 version and fixes that class of errors.
 
-**Enable ODA:** get the Linux `.deb` URL from
-<https://www.opendesign.com/guestfiles/oda_file_converter> (accept their licence),
-then add a repo **Actions variable** `ODA_URL` (Settings → Secrets and variables →
-Actions → Variables). The next build bundles it; `/health` then shows `"oda":true`.
-Note: ODA's licence restricts redistribution — if you bundle it, keep the GHCR
-package **private** (pull with a credential) rather than public.
+**Enable ODA:** download the Linux `.deb` from
+<https://www.opendesign.com/guestfiles/oda_file_converter> (accept their licence).
+Its direct link is a 60-second presigned URL, so CI can't fetch it — instead:
+1. Create a **GitHub Release** tagged **`oda`** on this repo and upload the `.deb`
+   as an asset. The build workflow pulls it (token-authed) into `app/oda/` and
+   installs it; `/health` then shows `"oda":true`.
+2. For a **local** build, just drop the `.deb` into `app/oda/` and build.
+
+The `.deb` is git-ignored (licence-restricted). ODA's licence also restricts
+redistribution, so keep the GHCR image **private** (pull with a credential) — do
+not leave a public image that bundles ODA.
 
 ### Two stack files
 

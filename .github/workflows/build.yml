@@ -18,6 +18,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Optional ODA File Converter: if a Release tagged `oda` exists, pull its
+      # .deb into the build context (app/oda/). Token-authed, so it works for a
+      # private repo and the licensed binary is never fetched via a public URL.
+      # No `oda` release -> builds with LibreDWG only.
+      - name: Fetch ODA File Converter (optional)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p app/oda
+          if gh release view oda >/dev/null 2>&1; then
+            gh release download oda --dir app/oda --pattern '*.deb' --clobber
+            echo "ODA deb in build context:"; ls -la app/oda
+          else
+            echo "No 'oda' release found — building without ODA (LibreDWG only)."
+          fi
+
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
@@ -45,10 +61,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Set repo variable ODA_URL (Settings → Secrets and variables → Actions
-          # → Variables) to the ODA File Converter .deb URL to bundle it. Empty =
-          # LibreDWG-only build (unchanged).
-          build-args: |
-            ODA_URL=${{ vars.ODA_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

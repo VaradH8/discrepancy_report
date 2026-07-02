@@ -22,22 +22,21 @@ COPY --from=dwgbuild /usr/local/lib/libredwg.* /usr/local/lib/
 RUN ldconfig
 
 # Optional: ODA File Converter — the preferred DWG decoder (reads every AutoCAD
-# version, so it handles files LibreDWG can't). Enable by passing the Linux .deb
-# URL: --build-arg ODA_URL=https://.../ODAFileConverter_..._lnxX64_..._25.x.deb
-# (grab it from https://www.opendesign.com/guestfiles/oda_file_converter after
-# accepting their licence). When unset, the image uses LibreDWG only. ODA is a
-# Qt GUI app, so it runs headless through xvfb.
-ARG ODA_URL=""
-RUN if [ -n "$ODA_URL" ]; then \
+# version, so it handles files LibreDWG can't). ODA's own download links are
+# 60-second presigned URLs that 403 in CI, so the .deb is provided via the build
+# context instead: the CI workflow fetches it from a GitHub Release into app/oda/,
+# or drop it there yourself for a local build. When app/oda/ has no .deb the image
+# uses LibreDWG only. ODA is a Qt GUI app, so it runs headless through xvfb.
+COPY oda/ /tmp/oda/
+RUN if ls /tmp/oda/*.deb >/dev/null 2>&1; then \
       apt-get update && \
-      apt-get install -y --no-install-recommends xvfb curl ca-certificates libxcb-util1 && \
-      curl -fL "$ODA_URL" -o /tmp/oda.deb && \
-      apt-get install -y --no-install-recommends /tmp/oda.deb && \
-      rm -f /tmp/oda.deb && rm -rf /var/lib/apt/lists/* && \
+      apt-get install -y --no-install-recommends xvfb libxcb-util1 && \
+      apt-get install -y --no-install-recommends /tmp/oda/*.deb && \
       # Ubuntu 22/24 ship libxcb-util.so.1; ODA's Qt build wants .so.0 (per ODA docs)
       ln -sf /usr/lib/x86_64-linux-gnu/libxcb-util.so.1 /usr/lib/x86_64-linux-gnu/libxcb-util.so.0 && \
+      rm -rf /var/lib/apt/lists/* /tmp/oda && \
       command -v ODAFileConverter ; \
-    else echo "ODA_URL not set -> DWG conversion uses LibreDWG only"; fi
+    else echo "no ODA .deb in app/oda -> DWG conversion uses LibreDWG only"; rm -rf /tmp/oda; fi
 
 WORKDIR /app
 COPY backend/requirements.txt .
