@@ -51,4 +51,9 @@ COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 WORKDIR /app/backend
 EXPOSE 8000
-CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Multiple workers: a big DXF parse is CPU-bound and holds the GIL for ~a minute;
+# with a single process that starves /health, the Swarm healthcheck restarts the
+# container mid-request and the user sees a Traefik 502. Extra workers keep
+# /health answered while another worker parses. Raise WEB_CONCURRENCY on beefy
+# nodes; each concurrent big parse can use ~1.5-2GB.
+CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-3} --timeout-keep-alive 120"]

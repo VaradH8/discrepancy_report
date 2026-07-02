@@ -122,7 +122,7 @@ def _text_xy(e):
         try: s = e.plain_text()
         except Exception: s = getattr(e, "text", "")
         return s, ins.x, ins.y
-    if t == "ATTRIB":
+    if t in ("ATTRIB", "ATTDEF"):
         ins = e.dxf.insert if e.dxf.hasattr("insert") else None
         return e.dxf.text, (ins.x if ins else 0.0), (ins.y if ins else 0.0)
     return None
@@ -144,36 +144,7 @@ def _scan(dxf_path):
         s = (s or "").strip()
         if TAG.match(s):
             tags.setdefault(s, (round(x, 2), round(y, 2)))
-
-    cache = {}  # block name -> [(tag_string, Vec3 local position), ...]
-    def _block_tags(name, depth):
-        if name in cache:
-            return cache[name]
-        cache[name] = []          # cycle guard while we recurse
-        out = []
-        if depth >= 0:
-            try:
-                blk = doc.blocks[name]
-            except Exception:
-                blk = None
-            if blk is not None:
-                for e in blk:
-                    tv = _text_xy(e)
-                    if tv:
-                        s = (tv[0] or "").strip()
-                        if TAG.match(s):
-                            out.append((s, Vec3(tv[1], tv[2], 0)))
-                    elif e.dxftype() == "INSERT":
-                        sub = _block_tags(e.dxf.name, depth - 1)
-                        if sub:
-                            try:
-                                m = e.matrix44()
-                            except Exception:
-                                continue
-                            out.extend((s, m.transform(p)) for s, p in sub)
-        cache[name] = out
-        return out
-
+    # 1) Modelspace — world positions, plus geometry + datum-marker counts.
     for e in msp:
         t = e.dxftype()
         hist[t] = hist.get(t, 0) + 1
@@ -185,22 +156,22 @@ def _scan(dxf_path):
             if "DATUM" in e.dxf.name.upper():
                 datums.append((ins.x, ins.y))
             try:
-                for a in e.attribs:          # per-insert attribute values
+                for a in e.attribs:
                     av = _text_xy(a)
                     if av: _add(*av)
             except Exception:
                 pass
-            sub = _block_tags(e.dxf.name, 3)
-            if sub:
-                try:
-                    m = e.matrix44()
-                except Exception:
-                    m = None
-                for s, p in sub:
-                    wp = m.transform(p) if m is not None else p
-                    _add(s, wp.x, wp.y)
         elif t in ("LINE", "LWPOLYLINE", "POLYLINE", "ARC", "SPLINE", "HATCH"):
             geom += 1
+    # 2) Every block definition — equipment tags very often live inside blocks
+    #    (a DXF *export* flattens them into modelspace; a converter keeps the
+    #    block structure). Sweep all definitions once for the tag SET. Positions
+    #    here are block-local, which is fine — the diff is set-based and these
+    #    files carry no registrable datum layout anyway.
+    for blk in doc.blocks:
+        for e in blk:
+            tv = _text_xy(e)
+            if tv: _add(*tv)
     return tags, datums, geom, hist
 
 def _nearest(pt, pts):
