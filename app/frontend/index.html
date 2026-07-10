@@ -119,6 +119,7 @@
     <button class="tab active" id="tabCompare" data-panel="panelCompare">1 · Compare</button>
     <button class="tab" id="tabXref" data-panel="panelXref">2 · Cross-reference</button>
     <button class="tab" id="tabReg" data-panel="panelReg">3 · Registered only</button>
+    <button class="tab" id="tabBatch" data-panel="panelBatch">4 · Batch folders</button>
   </div>
 
   <section class="panel active" id="panelCompare">
@@ -216,6 +217,44 @@
     <div class="lists" id="regLists"></div>
   </section>
   </section><!-- /panelReg -->
+
+  <section class="panel" id="panelBatch">
+  <h1>Whole folders in, registered reports out.</h1>
+  <p class="lede">Pick the <b>issued-revision folder</b> and the <b>new-revision folder</b>. Sheets are paired by number (SHT-01 ↔ SHT-01 …); each pair is compared; every change is cross-referenced against the <b>issued set</b> (<b class="tag-add">GLOBALLY / LOCALLY</b>); rows outside the master register are dropped. You get one zip with a <code>Registered</code> + unfiltered <code>Changes</code> excel per sheet.</p>
+
+  <div class="slots">
+    <label class="slot ref" id="slotBIss">
+      <span class="corner">A</span>
+      <span class="role">Issued set · baseline folder</span>
+      <span class="hint">Drop the whole folder (or click to pick a folder)</span>
+      <input type="file" id="bIss" webkitdirectory multiple>
+    </label>
+    <label class="slot cand" id="slotBCand">
+      <span class="corner">B</span>
+      <span class="role">New revision · candidate folder</span>
+      <span class="hint">Drop the whole folder (or click to pick a folder)</span>
+      <input type="file" id="bCand" webkitdirectory multiple>
+    </label>
+  </div>
+
+  <div class="controls">
+    <button class="run" id="bRun" disabled>Run batch</button>
+  </div>
+
+  <div class="err" id="bErr"></div>
+
+  <section class="out" id="bOut">
+    <div class="bar"><h2>Batch · Registered</h2><a class="dl" id="bDl" download>Download .zip</a></div>
+    <div class="stats">
+      <div class="stat"><div class="n" id="bSheets">–</div><div class="k">Sheets paired</div></div>
+      <div class="stat added"><div class="n" id="bAdd">–</div><div class="k">Reg. added</div></div>
+      <div class="stat removed"><div class="n" id="bRem">–</div><div class="k">Reg. removed</div></div>
+      <div class="stat"><div class="n" id="bBoth">–</div><div class="k">Reg. in both</div></div>
+    </div>
+    <div class="lists" id="bTable"></div>
+    <div class="note" id="bNote"></div>
+  </section>
+  </section><!-- /panelBatch -->
 
   <footer>DWG parsing runs server-side · LibreDWG + ezdxf · returns formatted .xlsx</footer>
 </div>
@@ -441,6 +480,95 @@ $("regRun").addEventListener("click", async () => {
     $("regOut").classList.add("show");
   }catch(e){ $("regErr").textContent="× "+e.message; $("regErr").classList.add("show"); }
   finally{ btn.innerHTML=old; refreshReg(); }
+});
+
+/* ---------- batch folders (tab 4) ---------- */
+const bFiles = {iss:[], cand:[]};
+const isDrawing = f => /\.(dwg|dxf)$/i.test(f.name);
+
+async function filesFromDrop(dt){
+  // Folders dropped from Explorer arrive as directory entries — walk them.
+  const out=[]; const items=[...(dt.items||[])];
+  async function walk(entry){
+    if(!entry) return;
+    if(entry.isFile){ const f=await new Promise(res=>entry.file(res)); out.push(f); }
+    else if(entry.isDirectory){
+      const rd=entry.createReader(); let batch;
+      do{ batch=await new Promise(res=>rd.readEntries(res));
+          for(const e of batch) await walk(e); }while(batch.length);
+    }
+  }
+  for(const it of items){
+    const e=it.webkitGetAsEntry && it.webkitGetAsEntry();
+    if(e) await walk(e);
+    else{ const f=it.getAsFile && it.getAsFile(); if(f) out.push(f); }
+  }
+  return out.length? out : [...(dt.files||[])];
+}
+
+function bSet(key, slotId, list){
+  const files=[...list].filter(isDrawing);
+  bFiles[key]=files;
+  const slot=$(slotId);
+  slot.classList.toggle("filled", files.length>0);
+  slot.querySelector(".hint")?.remove();
+  let el=slot.querySelector(".file");
+  if(!el){ el=document.createElement("span"); el.className="file"; slot.appendChild(el);
+    const sz=document.createElement("span"); sz.className="sz"; slot.appendChild(sz); }
+  el.textContent = files.length ? `${files.length} drawings` : "no .dwg/.dxf found";
+  slot.querySelector(".sz").textContent =
+    (files.reduce((a,f)=>a+f.size,0)/1024/1024).toFixed(1)+" MB total";
+  $("bRun").disabled = !(bFiles.iss.length && bFiles.cand.length);
+}
+function bindBatch(slotId, inputId, key){
+  const slot=$(slotId), input=$(inputId);
+  input.addEventListener("change", e=>bSet(key, slotId, e.target.files));
+  ["dragover","dragenter"].forEach(ev=>slot.addEventListener(ev,e=>{e.preventDefault();slot.classList.add("drag")}));
+  ["dragleave","drop"].forEach(ev=>slot.addEventListener(ev,e=>{e.preventDefault();slot.classList.remove("drag")}));
+  slot.addEventListener("drop", async e=>{ bSet(key, slotId, await filesFromDrop(e.dataTransfer)); });
+}
+bindBatch("slotBIss","bIss","iss"); bindBatch("slotBCand","bCand","cand");
+
+$("bRun").addEventListener("click", async ()=>{
+  $("bErr").classList.remove("show");
+  const btn=$("bRun"); const old=btn.innerHTML;
+  btn.disabled=true;
+  btn.innerHTML=`<span class="spin"></span>Processing ${bFiles.iss.length}+${bFiles.cand.length} drawings — large sets take a few minutes…`;
+  try{
+    const fd=new FormData();
+    bFiles.iss.forEach(f=>fd.append("issued", f, f.name));
+    bFiles.cand.forEach(f=>fd.append("candidate", f, f.name));
+    const r=await fetch("/batch",{method:"POST",body:fd});
+    if(!r.ok){ const t=await r.text(); throw new Error(t||("HTTP "+r.status)); }
+    let sum={}; try{ sum=JSON.parse(r.headers.get("X-Summary")||"{}"); }catch(_){}
+    const blob=await r.blob();
+    $("bDl").href=URL.createObjectURL(blob); $("bDl").download="Registered_Reports.zip";
+    const sheets=sum.sheets||[];
+    const tot=k=>sheets.reduce((a,s)=>a+((s.reg||{})[k]||0),0);
+    $("bSheets").textContent=sheets.length;
+    $("bAdd").textContent=tot("gA")+tot("lA");
+    $("bRem").textContent=tot("gR")+tot("lR");
+    $("bBoth").textContent=tot("both");
+    let rows=sheets.map(s=>{
+      const g=s.reg||{}, raw=s.raw||{};
+      return `<tr><td class="tag">SHT-${s.sheet}</td>`
+        + `<td class="found">${raw.added||0} / ${raw.removed||0} / ${raw.both||0}</td>`
+        + `<td class="tag-add">${g.gA||0}</td><td class="tag-add">${g.lA||0}</td>`
+        + `<td class="tag-rem">${g.gR||0}</td><td class="tag-rem">${g.lR||0}</td>`
+        + `<td>${g.both||0}</td><td>${g.kept||0}</td></tr>`;
+    }).join("");
+    $("bTable").innerHTML =
+      `<table class="xr"><thead><tr><th>Sheet</th><th>Raw a/r/both</th>`
+      + `<th>Glob add</th><th>Loc add</th><th>Glob rem</th><th>Loc rem</th>`
+      + `<th>Both</th><th>Kept</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const un=[...(sum.unpaired_issued||[]).map(n=>"issued SHT-"+n),
+              ...(sum.unpaired_candidate||[]).map(n=>"candidate SHT-"+n)];
+    const note=$("bNote");
+    if(un.length){ note.textContent="⚠ Unpaired sheets skipped: "+un.join(", "); note.classList.add("show"); }
+    else note.classList.remove("show");
+    $("bOut").classList.add("show");
+  }catch(e){ $("bErr").textContent="× "+e.message; $("bErr").classList.add("show"); }
+  finally{ btn.innerHTML=old; btn.disabled=!(bFiles.iss.length&&bFiles.cand.length); }
 });
 </script>
 </body>

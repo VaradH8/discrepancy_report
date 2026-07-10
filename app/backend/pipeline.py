@@ -313,6 +313,99 @@ def scan_drawing(dwg_path):
     return tags
 
 
+# ── Batch: whole-folder compare -> cross-reference -> registered ─────────────
+# The exact per-module flow validated on real deliveries (m-04/m-05/M05B/M-07A):
+# pair sheets by number, diff tag-sets, label each change GLOBALLY/LOCALLY by
+# cross-referencing the ISSUED set, filter to the master register.
+_BATCH_SHEET_RES = (re.compile(r'SHT[-_ ]?0*(\d+)', re.I),   # ..._SHT-01_, SHT01, SHT_01
+                    re.compile(r'-0*(\d+)[_ ]*rev', re.I))   # ...-001-01_Rev C (no SHT marker)
+
+def sheet_no_from_name(name):
+    """Sheet number ('01'..) from a drawing filename, or None."""
+    for rx in _BATCH_SHEET_RES:
+        m = rx.search(name)
+        if m:
+            return f"{int(m.group(1)):02d}"
+    return None
+
+def batch_registered(issued_items, cand_items, out_dir, allow=None):
+    """Bulk pipeline over two drawing sets.
+
+    issued_items / cand_items : list of (filename, path) — the whole issued and
+    candidate folders. Sheets are paired by number; each pair is diffed; every
+    ADDED/REMOVED tag is labelled GLOBALLY vs LOCALLY against the ISSUED set;
+    the registered report drops tags outside the master register. Writes
+    SHT-XX_Registered.xlsx + SHT-XX_Changes.xlsx into out_dir.
+
+    Returns (paths, summary).
+    """
+    allow = load_master() if allow is None else allow
+    def scan_set(items):
+        out = {}
+        for label, path in items:
+            n = sheet_no_from_name(label)
+            if n is None or n in out:
+                continue
+            out[n] = set(scan_drawing(path))
+        return out
+    B, C = scan_set(issued_items), scan_set(cand_items)
+    B_sheets = {}   # tag -> issued sheets it appears on
+    for n, s in B.items():
+        for tg in s:
+            B_sheets.setdefault(tg, set()).add(n)
+    paths, sheets = [], []
+    for n in sorted(set(B) & set(C)):
+        Bn, Cn = B[n], C[n]
+        both, added, removed = Bn & Cn, Cn - Bn, Bn - Cn
+        def lab_for(tg, status):
+            if status == "ADDED":
+                return "LOCALLY ADDED" if tg in B_sheets else "GLOBALLY ADDED"
+            return "LOCALLY REMOVED" if (B_sheets.get(tg, set()) - {n}) else "GLOBALLY REMOVED"
+        def build(filter_master):
+            rows, groups = [], {k: [] for k in SCOPE_LABELS}
+            for tg in sorted(Bn | Cn):
+                if filter_master and _norm(tg) not in allow:
+                    continue
+                r = {c: "" for c in COLS}; r["EquipmentName"] = tg; r["Sheet"] = f"SHT_{n}"
+                if tg in both:
+                    r["Status"] = "PRESENT IN BOTH"; r["Notes"] = "Present in both revisions."
+                else:
+                    status = "ADDED" if tg in added else "REMOVED"
+                    lab = lab_for(tg, status)
+                    r["Status"] = lab; groups[lab].append(tg)
+                    r["Match_Confidence"] = "HIGH (tag-set)"
+                    r["Notes"] = ("Also elsewhere in the issued set." if lab.startswith("LOCALLY")
+                                  else ("New in the candidate set." if status == "ADDED"
+                                        else "Gone from the entire issued set."))
+                rows.append(r)
+            for k in groups:
+                groups[k] = sorted(groups[k])
+            return rows, groups
+        entry = {"sheet": n,
+                 "raw": {"added": len(added), "removed": len(removed), "both": len(both)}}
+        for filter_master, suffix in ((True, "Registered"), (False, "Changes")):
+            rows, groups = build(filter_master)
+            nboth = sum(1 for r in rows if r["Status"] == "PRESENT IN BOTH")
+            stats = dict(both=nboth,
+                         added=sorted(r["EquipmentName"] for r in rows if "ADDED" in r["Status"]),
+                         removed=sorted(r["EquipmentName"] for r in rows if "REMOVED" in r["Status"]),
+                         ref_geom=0, cand_geom=0, ref_datums=0, cand_datums=0,
+                         movement_ok=False, warning="", scope=groups)
+            out = os.path.join(out_dir, f"SHT-{n}_{suffix}.xlsx")
+            _write(rows, stats, f"SHT_{n}", out)
+            paths.append(out)
+            if filter_master:
+                entry["reg"] = {"gA": len(groups["GLOBALLY ADDED"]), "lA": len(groups["LOCALLY ADDED"]),
+                                "gR": len(groups["GLOBALLY REMOVED"]), "lR": len(groups["LOCALLY REMOVED"]),
+                                "both": nboth, "kept": len(rows)}
+        sheets.append(entry)
+    summary = {"sheets": sheets,
+               "unpaired_issued": sorted(set(B) - set(C)),
+               "unpaired_candidate": sorted(set(C) - set(B)),
+               "master_count": len(allow)}
+    return paths, summary
+
+
 SHEET_RE = re.compile(r'(SHT|SH|SHEET)[_\- ]?0*(\d+)', re.I)
 
 def _sheet_no(label):

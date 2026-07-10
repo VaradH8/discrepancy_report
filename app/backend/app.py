@@ -9,7 +9,8 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from pipeline import compare, cross_reference, compare_registered, load_master, has_oda
+from pipeline import (compare, cross_reference, compare_registered, load_master,
+                      has_oda, batch_registered)
 
 app = FastAPI(title="DWG Discrepancy")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -116,6 +117,49 @@ def registered_endpoint(
                 "X-Dropped-Names": json.dumps(dropped[:300], separators=(",", ":")),
                 "Access-Control-Expose-Headers":
                     "X-Kept,X-Dropped,X-Master,X-Both,X-Added,X-Removed,X-Scope,X-Dropped-Names",
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/batch")
+def batch_endpoint(
+    issued: List[UploadFile] = File(..., description="Every issued/baseline drawing (whole folder)"),
+    candidate: List[UploadFile] = File(..., description="Every new-revision drawing (whole folder)"),
+):
+    """Bulk registered pipeline: pair sheets by number across the two sets, then
+    per sheet run compare -> cross-reference (against the issued set, GLOBALLY/
+    LOCALLY) -> master-register filter. Returns a zip with SHT-XX_Registered.xlsx
+    and SHT-XX_Changes.xlsx (unfiltered) per paired sheet."""
+    import zipfile
+    if not issued or not candidate:
+        raise HTTPException(400, "upload both drawing sets")
+    tmp = tempfile.mkdtemp(prefix="dwgbatch_")
+    try:
+        idir = os.path.join(tmp, "issued"); cdir = os.path.join(tmp, "cand")
+        outd = os.path.join(tmp, "reports")
+        os.makedirs(idir); os.makedirs(cdir); os.makedirs(outd)
+        issued_items = [(os.path.basename(u.filename), _save(u, idir)) for u in issued]
+        cand_items   = [(os.path.basename(u.filename), _save(u, cdir)) for u in candidate]
+        try:
+            files, summary = batch_registered(issued_items, cand_items, outd)
+        except RuntimeError as e:
+            raise HTTPException(422, str(e))
+        if not files:
+            raise HTTPException(422, "no sheet numbers could be paired between the two sets "
+                                     "(filenames need SHT-01 / SHT01 / ...-01_Rev X style numbering)")
+        zpath = os.path.join(tmp, "Registered_Reports.zip")
+        with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+            for f in files:
+                z.write(f, os.path.basename(f))
+        return FileResponse(
+            zpath, media_type="application/zip", filename="Registered_Reports.zip",
+            headers={
+                "X-Summary": json.dumps(summary, separators=(",", ":")),
+                "Access-Control-Expose-Headers": "X-Summary",
             },
         )
     except HTTPException:
