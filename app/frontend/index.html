@@ -32,8 +32,6 @@
   .meta{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.12em}
   h1{font-size:30px;font-weight:600;letter-spacing:-.025em;margin:30px 0 6px}
   .lede{color:var(--sub);max-width:60ch;margin:0 0 16px}
-  .guide{font-size:13.5px;color:var(--ink);background:#fff;border-left:3px solid var(--cyan);padding:10px 14px;margin:0 0 22px;box-shadow:var(--shadow)}
-  .guide b{color:var(--cyan)}
 
   .slots{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:620px){.slots{grid-template-columns:1fr}}
@@ -50,9 +48,6 @@
   input[type=file]{display:none}
 
   .controls{display:flex;align-items:center;gap:14px;margin-top:18px;flex-wrap:wrap}
-  .sheet{display:flex;align-items:center;gap:8px;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--sub)}
-  .sheet input{font-family:"IBM Plex Mono",monospace;font-size:13px;border:1.5px solid var(--line);background:var(--card);padding:8px 10px;width:120px;color:var(--ink)}
-  .sheet input:focus{outline:none;border-color:var(--cyan)}
   button.run{margin-left:auto;font-family:"Space Grotesk";font-weight:600;font-size:15px;color:#fff;background:var(--ink);border:none;padding:12px 22px;cursor:pointer;letter-spacing:-.01em}
   button.run:disabled{background:var(--line);cursor:not-allowed}
   button.run:not(:disabled):hover{background:var(--change)}
@@ -70,10 +65,8 @@
   .stat:nth-child(4n){border-right:none}
   .stat .n{font-family:"IBM Plex Mono",monospace;font-size:30px;font-weight:600;letter-spacing:-.02em}
   .stat .k{font-family:"IBM Plex Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.13em;color:var(--sub);margin-top:2px}
-  .stat.added .n{color:var(--added)} .stat.removed .n{color:var(--removed)} .stat.move .n{font-size:18px;padding-top:10px}
+  .stat.added .n{color:var(--added)} .stat.removed .n{color:var(--removed)}
   .lists{padding:4px 18px 18px;font-family:"IBM Plex Mono",monospace;font-size:12px}
-  .lists .row{display:flex;gap:10px;padding:7px 0;border-top:1px dashed var(--grid)}
-  .lists .row span:first-child{min-width:74px;color:var(--sub)}
   .tag-add{color:var(--added)} .tag-rem{color:var(--removed)}
   .note{padding:14px 18px;border-top:1px solid var(--grid);background:#fbf4f3;color:#7a241d;font-size:13px;display:none}
   .note.show{display:block}
@@ -90,137 +83,42 @@
   .panel{display:none}
   .panel.active{display:block;animation:rise .25s ease}
 
-  .dropbig{display:block;background:var(--card);border:1.5px dashed var(--line);box-shadow:var(--shadow);padding:26px;text-align:center;cursor:pointer;transition:border-color .15s}
-  .dropbig:hover,.dropbig.drag{border-color:var(--cyan)}
-  .dropbig .big{display:block;font-size:15px;color:var(--ink)} .dropbig .small{display:block;max-width:60ch;margin:4px auto 0;font-size:13px;color:var(--sub)}
-  .filelist{margin-top:14px;font-family:"IBM Plex Mono",monospace;font-size:12px}
-  .filelist .f{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px dashed var(--grid)}
-  .filelist .f .x{color:var(--change);cursor:pointer;font-weight:600}
-  .basis{background:#fff;border-left:3px solid var(--cyan);padding:10px 14px;margin:0 0 18px;box-shadow:var(--shadow);font-size:13.5px}
-  .basis .none{color:var(--change)}
-  .basis code{font-family:"IBM Plex Mono",monospace;background:var(--paper);padding:1px 5px}
   table.xr{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
   table.xr th{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);text-align:left;padding:8px 10px;border-bottom:1.5px solid var(--ink)}
   table.xr td{padding:8px 10px;border-bottom:1px solid var(--grid);vertical-align:top}
   table.xr td.tag{font-family:"IBM Plex Mono",monospace;font-weight:600}
-  .pill{font-family:"IBM Plex Mono",monospace;font-size:10px;padding:2px 7px;border-radius:2px;white-space:nowrap}
-  .pill.new{background:#d6f0e0;color:#1f8a55} .pill.shared{background:#fff2cc;color:#8a6a18}
   .found{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--sub)}
+
+  /* how-it-works explainer */
+  .step{position:relative;background:var(--card);border:1.5px solid var(--line);box-shadow:var(--shadow);padding:20px 22px 18px 74px;margin-top:16px}
+  .step .no{position:absolute;left:20px;top:18px;font-family:"IBM Plex Mono",monospace;font-size:26px;font-weight:600;color:var(--cyan)}
+  .step h3{margin:0 0 6px;font-size:16px;letter-spacing:-.01em}
+  .step p{margin:0 0 8px;font-size:13.5px;color:var(--ink)}
+  .step p:last-child{margin-bottom:0}
+  .step .sub{color:var(--sub)}
+  .step code{font-family:"IBM Plex Mono",monospace;font-size:12px;background:var(--paper);padding:1px 5px}
+  .step.reg{border-left:3px solid var(--cyan)}
+  .flow{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--sub);margin:18px 0 2px;letter-spacing:.04em}
+  .flow b{color:var(--ink)}
+  .cta{margin-top:20px;background:#fff;border-left:3px solid var(--change);padding:12px 16px;box-shadow:var(--shadow);font-size:13.5px}
+  .cta b{color:var(--change)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div class="brand">DWG<b>·</b>Discrepancy</div>
-    <div class="meta">reference&nbsp;→&nbsp;candidate&nbsp;·&nbsp;equipment&nbsp;register</div>
+    <div class="meta">issued&nbsp;→&nbsp;new revision&nbsp;·&nbsp;equipment&nbsp;register</div>
   </header>
 
   <div class="tabs">
-    <button class="tab active" id="tabCompare" data-panel="panelCompare">1 · Compare</button>
-    <button class="tab" id="tabXref" data-panel="panelXref">2 · Cross-reference</button>
-    <button class="tab" id="tabReg" data-panel="panelReg">3 · Registered only</button>
-    <button class="tab" id="tabBatch" data-panel="panelBatch">4 · Batch folders</button>
+    <button class="tab active" id="tabBatch" data-panel="panelBatch">1 · Batch folders</button>
+    <button class="tab" id="tabHow" data-panel="panelHow">2 · How it works</button>
   </div>
 
-  <section class="panel active" id="panelCompare">
-  <h1>Compare two drawings, get the change register.</h1>
-  <p class="lede">Drop the issued drawing and the new revision. The tool extracts equipment tags and datum positions, diffs them, and returns the discrepancy spreadsheet — the same file used to drive revision clouding.</p>
-
-  <div class="guide">Put the <b>issued / baseline</b> drawing on the left and the <b>new revision</b> on the right. Order matters: it decides which equipment counts as added vs removed.</div>
-
-  <div class="slots">
-    <label class="slot ref" id="slotRef">
-      <span class="corner">01</span>
-      <span class="role">Reference · issued</span>
-      <span class="hint">Drop the baseline .dwg / .dxf, or click to choose</span>
-      <input type="file" id="ref" accept=".dwg,.dxf">
-    </label>
-    <label class="slot cand" id="slotCand">
-      <span class="corner">02</span>
-      <span class="role">Candidate · new revision</span>
-      <span class="hint">Drop the new .dwg / .dxf, or click to choose</span>
-      <input type="file" id="cand" accept=".dwg,.dxf">
-    </label>
-  </div>
-
-  <div class="controls">
-    <label class="sheet">SHEET <input id="sheet" value="SHT_01" spellcheck="false"></label>
-    <button class="run" id="run" disabled>Run comparison</button>
-  </div>
-
-  <div class="err" id="err"></div>
-
-  <section class="out" id="out">
-    <div class="bar"><h2>Discrepancy</h2><a class="dl" id="dl" download>Download .xlsx</a></div>
-    <div class="stats">
-      <div class="stat"><div class="n" id="sBoth">–</div><div class="k">In both</div></div>
-      <div class="stat added"><div class="n" id="sAdd">–</div><div class="k">Added</div></div>
-      <div class="stat removed"><div class="n" id="sRem">–</div><div class="k">Removed</div></div>
-      <div class="stat move"><div class="n" id="sMove">–</div><div class="k">Movement</div></div>
-    </div>
-    <div class="lists" id="lists"></div>
-    <div class="note" id="note"></div>
-  </section>
-  </section><!-- /panelCompare -->
-
-  <section class="panel" id="panelXref">
-  <h1>Is each change unique, or already drawn elsewhere?</h1>
-  <p class="lede">Takes the <b>added / removed</b> tags from your comparison and searches for them across every drawing in the set. Tells you whether each one is genuinely new (or fully removed), or already exists on other sheets.</p>
-
-  <div class="basis" id="xrefBasis"></div>
-
-  <label class="dropbig" id="xrefDrop">
-    <span class="big">Drop all drawings in the set, or click to choose</span>
-    <span class="small">Upload every sheet to check against — the more complete the set, the more reliable the verdict. <code>.dwg</code> or <code>.dxf</code> files.</span>
-    <input type="file" id="xrefFiles" accept=".dwg,.dxf" multiple>
-  </label>
-  <div class="filelist" id="xrefList"></div>
-
-  <div class="controls">
-    <button class="run" id="xrefRun" disabled>Run cross-reference</button>
-  </div>
-
-  <div class="err" id="xrefErr"></div>
-
-  <section class="out" id="xrefOut">
-    <div class="bar"><h2>Cross-Reference</h2><a class="dl" id="xrefDl" download>Download .xlsx</a></div>
-    <div class="stats">
-      <div class="stat"><div class="n" id="xTags">–</div><div class="k">Tags checked</div></div>
-      <div class="stat added"><div class="n" id="xNew">–</div><div class="k">Globally new</div></div>
-      <div class="stat removed"><div class="n" id="xGone">–</div><div class="k">Globally removed</div></div>
-      <div class="stat move"><div class="n" id="xSheets">–</div><div class="k">Sheets scanned</div></div>
-    </div>
-    <div class="lists" id="xrefTable"></div>
-  </section>
-  </section><!-- /panelXref -->
-
-  <section class="panel" id="panelReg">
-  <h1>Registered changes, tagged global vs local.</h1>
-  <p class="lede">Keeps only equipment in the master register (<i>Equipment List to Inventive</i>) from your comparison. If you've also run the <b>cross-reference</b>, each change is rewritten as <b class="tag-add">GLOBALLY / LOCALLY ADDED</b> or <b class="tag-rem">GLOBALLY / LOCALLY REMOVED</b> — <i>global</i> = found nowhere else, <i>local</i> = exists on other sheets. The cross-reference is optional; without it, rows keep plain ADDED / REMOVED.</p>
-
-  <div class="basis" id="regBasis"></div>
-
-  <div class="controls">
-    <button class="run" id="regRun" disabled>Build registered-only report</button>
-  </div>
-
-  <div class="err" id="regErr"></div>
-
-  <section class="out" id="regOut">
-    <div class="bar"><h2>Registered-only discrepancy</h2><a class="dl" id="regDl" download>Download .xlsx</a></div>
-    <div class="stats">
-      <div class="stat"><div class="n" id="rKept">–</div><div class="k">Rows kept</div></div>
-      <div class="stat removed"><div class="n" id="rDropped">–</div><div class="k">Rows dropped</div></div>
-      <div class="stat added"><div class="n" id="rAdd">–</div><div class="k">Added · kept</div></div>
-      <div class="stat"><div class="n" id="rRem">–</div><div class="k">Removed · kept</div></div>
-    </div>
-    <div class="lists" id="regLists"></div>
-  </section>
-  </section><!-- /panelReg -->
-
-  <section class="panel" id="panelBatch">
+  <section class="panel active" id="panelBatch">
   <h1>Whole folders in, registered reports out.</h1>
-  <p class="lede">Pick the <b>issued-revision folder</b> and the <b>new-revision folder</b>. Sheets are paired by number (SHT-01 ↔ SHT-01 …); each pair is compared; every change is cross-referenced against the <b>issued set</b> (<b class="tag-add">GLOBALLY / LOCALLY</b>); rows outside the master register are dropped. You get one zip with a <code>Registered</code> + unfiltered <code>Changes</code> excel per sheet.</p>
+  <p class="lede">Pick the <b>issued-revision folder</b> and the <b>new-revision folder</b>. Sheets are paired by number (SHT-01 ↔ SHT-01 …); each pair is compared; every change is cross-referenced against the <b>issued set</b> (<b class="tag-add">GLOBALLY / LOCALLY</b>); rows outside the master register are dropped. You get one zip with a <code>Registered</code> + unfiltered <code>Changes</code> excel per sheet. See <b>How it works</b> for the full process.</p>
 
   <div class="slots">
     <label class="slot ref" id="slotBIss">
@@ -256,70 +154,54 @@
   </section>
   </section><!-- /panelBatch -->
 
+  <section class="panel" id="panelHow">
+  <h1>What happens to your drawings, step by step.</h1>
+  <p class="lede">The batch run performs three stages on every paired sheet — compare, cross-reference, register filter. This page only explains them; nothing here runs any processing.</p>
+
+  <div class="flow"><b>pair sheets</b> → <b>01 compare</b> → <b>02 cross-reference</b> → <b>03 register filter</b> → zip of .xlsx reports</div>
+
+  <div class="step">
+    <span class="no">00</span>
+    <h3>Pair the sheets</h3>
+    <p>Every drawing in the issued folder is matched to its counterpart in the new-revision folder by the sheet number in the filename — <code>SHT-01</code>, <code>SHT01</code>, <code>…-01_Rev X</code> and <code>SHEET 1</code> styles are all recognised. Sheets that exist in only one folder are skipped and listed as a warning.</p>
+  </div>
+
+  <div class="step">
+    <span class="no">01</span>
+    <h3>Compare — what changed on this sheet?</h3>
+    <p>Both drawings are converted server-side (LibreDWG / ODA, DWG → DXF) and scanned for equipment tags — modelspace plus every block definition, including tags nested inside block references — along with their datum positions.</p>
+    <p>The two tag-sets are diffed: each piece of equipment comes out as <b class="tag-add">ADDED</b> (only in the new revision), <b class="tag-rem">REMOVED</b> (only in the issued drawing), or <b>PRESENT IN BOTH</b>. Where positions are available, movement between revisions is computed too.</p>
+  </div>
+
+  <div class="step">
+    <span class="no">02</span>
+    <h3>Cross-reference — is the change unique, or drawn elsewhere?</h3>
+    <p>Every added / removed tag from step 01 is then searched across <b>all the other sheets of the issued set</b>. The verdict decides the label:</p>
+    <p><b class="tag-add">GLOBALLY ADDED / REMOVED</b> — the tag is found on no other sheet: a genuinely new (or fully removed) piece of equipment.<br>
+       <b class="tag-rem">LOCALLY ADDED / REMOVED</b> — the tag still exists on other sheets: the change is local to this sheet only.</p>
+  </div>
+
+  <div class="step reg">
+    <span class="no">03</span>
+    <h3>Register filter — keep only registered equipment</h3>
+    <p>Rows are kept only if the equipment name appears in the <b>master register</b>: the <b>yellow-highlighted</b> subset of the <code>EquipmentName</code> column in <i>Equipment List to Inventive 1.xlsx</i>. Those <span id="howMaster">~900</span> names are pre-extracted from that workbook and bundled with the server (<code>equipment_registered.txt</code>), so nothing needs uploading — every registered report is built against it automatically.</p>
+    <p class="sub">If the register Excel changes, re-run <code>tools/extract_register.py</code> against the updated workbook to refresh the bundled list.</p>
+  </div>
+
+  <div class="step">
+    <span class="no">→</span>
+    <h3>Output</h3>
+    <p>One zip containing, per paired sheet, <code>SHT-XX_Registered.xlsx</code> (register-filtered, statuses rewritten to GLOBALLY / LOCALLY ADDED / REMOVED) and <code>SHT-XX_Changes.xlsx</code> (the same diff, unfiltered) — the files used to drive revision clouding.</p>
+  </div>
+
+  <div class="cta"><b>Ready?</b> Everything above runs automatically — just drop your two folders on the <b>Batch folders</b> tab and hit Run.</div>
+  </section><!-- /panelHow -->
+
   <footer>DWG parsing runs server-side · LibreDWG + ezdxf · returns formatted .xlsx</footer>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
-const files = {ref:null, cand:null};
-
-function bind(slotId, inputId, key){
-  const slot = $(slotId), input = $(inputId);
-  const set = f => {
-    files[key] = f;
-    slot.classList.toggle("filled", !!f);
-    slot.querySelector(".hint")?.remove();
-    let fileEl = slot.querySelector(".file");
-    if(!fileEl){ fileEl=document.createElement("span"); fileEl.className="file"; slot.appendChild(fileEl);
-      const sz=document.createElement("span"); sz.className="sz"; slot.appendChild(sz); }
-    fileEl.textContent = f.name;
-    slot.querySelector(".sz").textContent = (f.size/1024/1024).toFixed(2)+" MB";
-    check();
-  };
-  input.addEventListener("change", e => e.target.files[0] && set(e.target.files[0]));
-  ["dragover","dragenter"].forEach(ev=>slot.addEventListener(ev,e=>{e.preventDefault();slot.classList.add("drag")}));
-  ["dragleave","drop"].forEach(ev=>slot.addEventListener(ev,e=>{e.preventDefault();slot.classList.remove("drag")}));
-  slot.addEventListener("drop", e => { const f=e.dataTransfer.files[0]; if(f) set(f); });
-}
-bind("slotRef","ref","ref"); bind("slotCand","cand","cand");
-function check(){ $("run").disabled = !(files.ref && files.cand); refreshReg(); }
-
-$("run").addEventListener("click", async () => {
-  $("err").classList.remove("show"); 
-  const btn=$("run"); const old=btn.innerHTML;
-  btn.disabled=true; btn.innerHTML='<span class="spin"></span>Comparing…';
-  try{
-    const fd=new FormData();
-    fd.append("reference",files.ref); fd.append("candidate",files.cand);
-    fd.append("sheet",$("sheet").value||"SHT");
-    const r=await fetch("/compare",{method:"POST",body:fd});
-    if(!r.ok){ const t=await r.text(); throw new Error(t||("HTTP "+r.status)); }
-    const both=r.headers.get("X-Both"), add=r.headers.get("X-Added"), rem=r.headers.get("X-Removed"), mv=r.headers.get("X-Movement"), warn=r.headers.get("X-Warning");
-    let posMap={}; try{ posMap=JSON.parse(r.headers.get("X-Pos")||"{}"); }catch(_){}
-    const blob=await r.blob();
-    $("dl").href=URL.createObjectURL(blob); $("dl").download=($("sheet").value||"SHT")+"_Discrepancy.xlsx";
-    const addArr=(add&&add!=="-")?add.split(","):[], remArr=(rem&&rem!=="-")?rem.split(","):[];
-    $("sBoth").textContent=both; $("sAdd").textContent=addArr.length; $("sRem").textContent=remArr.length;
-    $("sMove").textContent = mv==="yes" ? "computable" : "tag-set only";
-    let html="";
-    if(addArr.length) html+=`<div class="row"><span>ADDED</span><span class="tag-add">${addArr.join("   ")}</span></div>`;
-    if(remArr.length) html+=`<div class="row"><span>REMOVED</span><span class="tag-rem">${remArr.join("   ")}</span></div>`;
-    $("lists").innerHTML=html;
-    const note=$("note");
-    if(warn && warn!=="-"){ note.textContent="⚠ "+warn; note.classList.add("show"); }
-    else if(mv!=="yes"){ note.textContent="Candidate has no registrable positions (schedule extract) — added/removed are reliable; spatial movement isn't computable. For movement + clouding, supply a full-layout candidate."; note.classList.add("show"); }
-    else note.classList.remove("show");
-    $("out").classList.add("show");
-    lastCompare = {
-      sheet: $("sheet").value || "SHT",
-      added: addArr, removed: remArr,
-      origins: [files.ref?.name, files.cand?.name].filter(Boolean),
-      positions: posMap,
-    };
-    refreshBasis();
-  }catch(e){ $("err").textContent="× "+e.message; $("err").classList.add("show"); }
-  finally{ btn.disabled=false; btn.innerHTML=old; check(); }
-});
 
 /* ---------- tabs ---------- */
 document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
@@ -329,160 +211,12 @@ document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () =>
   $(t.dataset.panel).classList.add("active");
 }));
 
-/* ---------- cross-reference (tab 2, chained from tab 1) ---------- */
-let lastCompare = null;
-let lastXref = null;   // {sheet, scope:{tag: "GLOBALLY ADDED"|...}} — feeds tab 3
-const xrefFiles = [];
+/* live register size in the explainer */
+fetch("/health").then(r=>r.json()).then(j=>{
+  if(j.master_count) $("howMaster").textContent = j.master_count;
+}).catch(()=>{});
 
-function refreshBasis(){
-  const b = $("xrefBasis");
-  if(!lastCompare){
-    b.innerHTML = `<span class="none">No comparison yet.</span> Run a comparison on the <b>Compare</b> tab first — its added/removed tags become the basis for this cross-reference.`;
-    $("xrefRun").disabled = true;
-    return;
-  }
-  const a = lastCompare.added, r = lastCompare.removed;
-  b.innerHTML = `Basis — comparison <code>${lastCompare.sheet}</code>: `
-    + `<b class="tag-add">${a.length} added</b>${a.length?" ("+a.join(", ")+")":""}, `
-    + `<b class="tag-rem">${r.length} removed</b>${r.length?" ("+r.join(", ")+")":""}. `
-    + (a.length+r.length ? "These tags will be searched across every drawing you upload below."
-                         : "Nothing was added or removed — there is nothing to cross-reference.");
-  refreshXrefRun();
-}
-refreshBasis();
-
-function renderXrefList(){
-  $("xrefList").innerHTML = xrefFiles.map((f,i) =>
-    `<div class="f"><span>${f.name} · ${(f.size/1024/1024).toFixed(2)} MB</span><span class="x" data-i="${i}">remove</span></div>`
-  ).join("");
-  $("xrefList").querySelectorAll(".x").forEach(el =>
-    el.addEventListener("click", () => { xrefFiles.splice(+el.dataset.i,1); renderXrefList(); refreshXrefRun(); }));
-  refreshXrefRun();
-}
-function refreshXrefRun(){
-  const tagsN = lastCompare ? (lastCompare.added.length + lastCompare.removed.length) : 0;
-  $("xrefRun").disabled = !(lastCompare && tagsN > 0 && xrefFiles.length > 0);
-}
-function addXrefFiles(list){
-  for(const f of list){ if(/\.(dwg|dxf)$/i.test(f.name) && !xrefFiles.some(x=>x.name===f.name&&x.size===f.size)) xrefFiles.push(f); }
-  renderXrefList();
-}
-$("xrefFiles").addEventListener("change", e => addXrefFiles(e.target.files));
-const xd = $("xrefDrop");
-["dragover","dragenter"].forEach(ev=>xd.addEventListener(ev,e=>{e.preventDefault();xd.classList.add("drag")}));
-["dragleave","drop"].forEach(ev=>xd.addEventListener(ev,e=>{e.preventDefault();xd.classList.remove("drag")}));
-xd.addEventListener("drop", e => addXrefFiles(e.dataTransfer.files));
-
-$("xrefRun").addEventListener("click", async () => {
-  $("xrefErr").classList.remove("show");
-  const btn=$("xrefRun"); const old=btn.innerHTML;
-  btn.disabled=true; btn.innerHTML='<span class="spin"></span>Cross-referencing…';
-  try{
-    const tags = [
-      ...lastCompare.added.map(t => ({tag:t, status:"ADDED"})),
-      ...lastCompare.removed.map(t => ({tag:t, status:"REMOVED"})),
-    ];
-    const fd=new FormData();
-    xrefFiles.forEach(f => fd.append("drawings", f));
-    fd.append("tags", JSON.stringify(tags));
-    fd.append("origins", JSON.stringify(lastCompare.origins));
-    fd.append("positions", JSON.stringify(lastCompare.positions||{}));
-    fd.append("sheet", lastCompare.sheet);
-    const r=await fetch("/crosscheck",{method:"POST",body:fd});
-    if(!r.ok){ const t=await r.text(); throw new Error(t||("HTTP "+r.status)); }
-    const results = JSON.parse(r.headers.get("X-Results")||"[]");
-    const nNew=r.headers.get("X-New"), nGone=r.headers.get("X-Removed-Global"), nSheets=r.headers.get("X-Sheets");
-    const blob=await r.blob();
-    $("xrefDl").href=URL.createObjectURL(blob); $("xrefDl").download=lastCompare.sheet+"_CrossReference.xlsx";
-    $("xTags").textContent=results.length; $("xNew").textContent=nNew; $("xGone").textContent=nGone; $("xSheets").textContent=nSheets;
-    let rows = results.map(x => {
-      const cls = x.exists_elsewhere ? "shared" : "new";
-      const label = x.exists_elsewhere ? "elsewhere" : (x.status==="ADDED"?"new":"removed");
-      const found = x.found.length ? x.found.join("  ") : "—";
-      return `<tr><td class="tag">${x.tag}</td><td>${x.status}</td>`
-           + `<td class="found">${x.home||"—"}</td>`
-           + `<td><span class="pill ${cls}">${label}</span></td>`
-           + `<td>${x.verdict}</td><td class="found">${found}</td></tr>`;
-    }).join("");
-    $("xrefTable").innerHTML =
-      `<table class="xr"><thead><tr><th>Equipment</th><th>From</th><th>Spotted on</th><th>Verdict</th><th>Detail</th><th>Also found in</th></tr></thead><tbody>${rows}</tbody></table>`;
-    $("xrefOut").classList.add("show");
-    // carry the global/local verdict to the Registered tab
-    lastXref = { sheet: lastCompare.sheet, scope: {} };
-    results.forEach(x => {
-      const lab = x.status==="ADDED"   ? (x.exists_elsewhere ? "LOCALLY ADDED"   : "GLOBALLY ADDED")
-                : x.status==="REMOVED" ? (x.exists_elsewhere ? "LOCALLY REMOVED" : "GLOBALLY REMOVED")
-                : null;
-      if(lab) lastXref.scope[x.tag] = lab;
-    });
-    refreshReg();
-  }catch(e){ $("xrefErr").textContent="× "+e.message; $("xrefErr").classList.add("show"); }
-  finally{ btn.innerHTML=old; refreshXrefRun(); }
-});
-
-/* ---------- registered-only (tab 3, reuses the Compare tab's two drawings) ---------- */
-let masterCount = null;
-fetch("/health").then(r=>r.json()).then(j=>{ masterCount = j.master_count; refreshReg(); }).catch(()=>{});
-
-function refreshReg(){
-  const b = $("regBasis"), have = !!(files.ref && files.cand), xref = !!lastXref;
-  const reg = $("regRun"); if(reg) reg.disabled = !have;   // cross-reference is optional
-  if(!b) return;
-  const master = masterCount==null ? "the register" : `<b>${masterCount}</b> registered equipment`;
-  if(!have){
-    b.innerHTML = `<span class="none">No drawings selected.</span> Run the <b>Compare</b> tab first — its two files are reused here.`;
-  } else if(!xref){
-    b.innerHTML = `Reuses <code>${files.ref.name}</code> → <code>${files.cand.name}</code>, filtered to ${master}. `
-      + `<b>Cross-reference not run</b> — rows keep plain ADDED / REMOVED. Run the <b>Cross-reference</b> tab first if you want <b class="tag-add">GLOBALLY / LOCALLY</b> labels (optional).`;
-  } else {
-    b.innerHTML = `Reuses <code>${files.ref.name}</code> → <code>${files.cand.name}</code> + the cross-reference verdict. `
-      + `Rows not in ${master} are dropped; ADDED/REMOVED rows become <b class="tag-add">GLOBALLY/LOCALLY ADDED</b> / <b class="tag-rem">…REMOVED</b>.`;
-  }
-}
-refreshReg();
-
-$("regRun").addEventListener("click", async () => {
-  $("regErr").classList.remove("show");
-  const btn=$("regRun"); const old=btn.innerHTML;
-  btn.disabled=true; btn.innerHTML='<span class="spin"></span>Filtering…';
-  try{
-    const sheet = $("sheet").value || "SHT";
-    const fd=new FormData();
-    fd.append("reference",files.ref); fd.append("candidate",files.cand); fd.append("sheet",sheet);
-    fd.append("scope", JSON.stringify((lastXref&&lastXref.scope)||{}));
-    const r=await fetch("/registered",{method:"POST",body:fd});
-    if(!r.ok){ const t=await r.text(); throw new Error(t||("HTTP "+r.status)); }
-    const kept=r.headers.get("X-Kept"), dropped=r.headers.get("X-Dropped");
-    const add=r.headers.get("X-Added"), rem=r.headers.get("X-Removed");
-    let scope={}, droppedNames=[];
-    try{ scope=JSON.parse(r.headers.get("X-Scope")||"{}"); }catch(_){}
-    try{ droppedNames=JSON.parse(r.headers.get("X-Dropped-Names")||"[]"); }catch(_){}
-    const blob=await r.blob();
-    $("regDl").href=URL.createObjectURL(blob); $("regDl").download=sheet+"_Discrepancy_Registered.xlsx";
-    const addArr=(add&&add!=="-")?add.split(","):[], remArr=(rem&&rem!=="-")?rem.split(","):[];
-    $("rKept").textContent=kept; $("rDropped").textContent=dropped;
-    $("rAdd").textContent=addArr.length; $("rRem").textContent=remArr.length;
-    const grp=(label,arr,cls)=> (arr&&arr.length)
-      ? `<div class="row"><span>${label}</span><span class="${cls}">${arr.join("   ")}</span></div>` : "";
-    const hasScope = ["GLOBALLY ADDED","LOCALLY ADDED","GLOBALLY REMOVED","LOCALLY REMOVED"]
-      .some(k => (scope[k]||[]).length);
-    let html = hasScope
-      ? grp("GLOBAL ADD", scope["GLOBALLY ADDED"],   "tag-add")
-      + grp("LOCAL ADD",  scope["LOCALLY ADDED"],    "tag-add")
-      + grp("GLOBAL REM", scope["GLOBALLY REMOVED"], "tag-rem")
-      + grp("LOCAL REM",  scope["LOCALLY REMOVED"],  "tag-rem")
-      : grp("ADDED", addArr, "tag-add") + grp("REMOVED", remArr, "tag-rem");
-    if(droppedNames.length){
-      const more = (+dropped) > droppedNames.length ? `  …+${(+dropped)-droppedNames.length} more` : "";
-      html+=`<div class="row"><span>DROPPED</span><span style="color:var(--sub)">${droppedNames.join("   ")}${more}</span></div>`;
-    }
-    $("regLists").innerHTML=html;
-    $("regOut").classList.add("show");
-  }catch(e){ $("regErr").textContent="× "+e.message; $("regErr").classList.add("show"); }
-  finally{ btn.innerHTML=old; refreshReg(); }
-});
-
-/* ---------- batch folders (tab 4) ---------- */
+/* ---------- batch folders ---------- */
 const bFiles = {iss:[], cand:[]};
 const isDrawing = f => /\.(dwg|dxf)$/i.test(f.name);
 
