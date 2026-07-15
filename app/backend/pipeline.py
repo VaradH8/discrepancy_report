@@ -246,10 +246,11 @@ def compare(ref_dwg, cand_dwg, sheet_name="SHT", out_xlsx=None):
 
 # ── Master register (background allowlist) ───────────────────────────────────
 # The discrepancy report is filtered down to only equipment in the register.
-# The register is the YELLOW-HIGHLIGHTED subset of column D (EquipmentName) of
-# "Equipment List to Inventive 1.xlsx" — NOT the whole column. Highlighting is
-# lost in CSV, so those 909 names are pre-extracted into equipment_registered.txt
-# (one name per line). To refresh after re-highlighting, see tools/extract_register.py.
+# The register is the WHOLE EquipmentName column of the latest "Equipment List
+# to Inventive" export (1,614 names as of the (4) list) — highlighting does NOT
+# matter (rule changed 2026-07-15; previously only the yellow subset counted).
+# Names are pre-extracted into equipment_registered.txt (one per line). To
+# refresh after a new list export, see tools/extract_register.py.
 MASTER_FILE = os.path.join(os.path.dirname(__file__), "equipment_registered.txt")
 _MASTER = None  # cached allowlist of normalized EquipmentNames
 
