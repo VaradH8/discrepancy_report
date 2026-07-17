@@ -220,7 +220,7 @@
 
   <section class="panel" id="panelBatch">
   <h1>Whole folders in, registered reports out.</h1>
-  <p class="lede">Pick the <b>issued-revision folder</b> and the <b>new-revision folder</b>. Sheets are paired by number (SHT-01 ↔ SHT-01 …); each pair is compared; every change is cross-referenced against the <b>issued set</b> (<b class="tag-add">GLOBALLY / LOCALLY</b>); rows outside the master register are dropped. You get one zip with a <code>Registered</code> + unfiltered <code>Changes</code> excel per sheet.</p>
+  <p class="lede">Pick the <b>issued-revision folder</b> and the <b>new-revision folder</b>. Sheets are paired by number (SHT-01 ↔ SHT-01 …); each pair is compared against the master equipment register: <b class="tag-add">GLOBALLY ADDED</b> = registered equipment new in the extracted set; <b class="tag-add">LOCALLY ADDED</b> = unregistered tag found on another extracted sheet too; <b class="tag-rem">REMOVED 1</b> = unregistered tag gone from the extracted set; <b class="tag-rem">REMOVED</b> = registered equipment gone from the extracted set (the critical case). Register entries missing from <i>both</i> the issued and extracted sets across the whole batch are reported once as <b class="tag-rem">Removed 2</b>. You get one zip with a <code>Registered</code> + unfiltered <code>Changes</code> excel per sheet.</p>
 
   <div class="slots">
     <label class="slot ref" id="slotBIss">
@@ -247,12 +247,14 @@
     <div class="bar"><h2>Batch · Registered</h2><a class="dl" id="bDl" download>Download .zip</a></div>
     <div class="stats">
       <div class="stat"><div class="n" id="bSheets">–</div><div class="k">Sheets paired</div></div>
-      <div class="stat added"><div class="n" id="bAdd">–</div><div class="k">Reg. added</div></div>
-      <div class="stat removed"><div class="n" id="bRem">–</div><div class="k">Reg. removed</div></div>
+      <div class="stat added"><div class="n" id="bAdd">–</div><div class="k">Globally + Locally added</div></div>
+      <div class="stat removed"><div class="n" id="bRem">–</div><div class="k">Removed 1 + Removed</div></div>
       <div class="stat"><div class="n" id="bBoth">–</div><div class="k">Reg. in both</div></div>
+      <div class="stat removed"><div class="n" id="bGap">–</div><div class="k">Removed 2 (register gaps)</div></div>
     </div>
     <div class="lists" id="bTable"></div>
     <div class="note" id="bNote"></div>
+    <div class="note" id="bGapNote"></div>
   </section>
   </section><!-- /panelBatch -->
 
@@ -544,28 +546,33 @@ $("bRun").addEventListener("click", async ()=>{
     const blob=await r.blob();
     $("bDl").href=URL.createObjectURL(blob); $("bDl").download="Registered_Reports.zip";
     const sheets=sum.sheets||[];
-    const tot=k=>sheets.reduce((a,s)=>a+((s.reg||{})[k]||0),0);
+    const tot=k=>sheets.reduce((a,s)=>a+((s.chg||{})[k]||0),0);
     $("bSheets").textContent=sheets.length;
     $("bAdd").textContent=tot("gA")+tot("lA");
-    $("bRem").textContent=tot("gR")+tot("lR");
-    $("bBoth").textContent=tot("both");
+    $("bRem").textContent=tot("r1")+tot("removed");
+    $("bBoth").textContent=sheets.reduce((a,s)=>a+((s.reg||{}).both||0),0);
+    const removed2=sum.removed2||[];
+    $("bGap").textContent=removed2.length;
     let rows=sheets.map(s=>{
-      const g=s.reg||{}, raw=s.raw||{};
+      const g=s.chg||{}, raw=s.raw||{};
       return `<tr><td class="tag">SHT-${s.sheet}</td>`
         + `<td class="found">${raw.added||0} / ${raw.removed||0} / ${raw.both||0}</td>`
         + `<td class="tag-add">${g.gA||0}</td><td class="tag-add">${g.lA||0}</td>`
-        + `<td class="tag-rem">${g.gR||0}</td><td class="tag-rem">${g.lR||0}</td>`
-        + `<td>${g.both||0}</td><td>${g.kept||0}</td></tr>`;
+        + `<td class="tag-rem">${g.r1||0}</td><td class="tag-rem">${g.removed||0}</td>`
+        + `<td>${(s.reg||{}).both||0}</td><td>${(s.reg||{}).kept||0}</td></tr>`;
     }).join("");
     $("bTable").innerHTML =
       `<table class="xr"><thead><tr><th>Sheet</th><th>Raw a/r/both</th>`
-      + `<th>Glob add</th><th>Loc add</th><th>Glob rem</th><th>Loc rem</th>`
+      + `<th>Global add</th><th>Local add</th><th>Removed 1</th><th>Removed</th>`
       + `<th>Both</th><th>Kept</th></tr></thead><tbody>${rows}</tbody></table>`;
     const un=[...(sum.unpaired_issued||[]).map(n=>"issued SHT-"+n),
               ...(sum.unpaired_candidate||[]).map(n=>"candidate SHT-"+n)];
     const note=$("bNote");
     if(un.length){ note.textContent="⚠ Unpaired sheets skipped: "+un.join(", "); note.classList.add("show"); }
     else note.classList.remove("show");
+    const gapNote=$("bGapNote");
+    if(removed2.length){ gapNote.textContent="⚠ Removed 2 — registered equipment absent from both issued and extracted sets: "+removed2.join(", "); gapNote.classList.add("show"); }
+    else gapNote.classList.remove("show");
     $("bOut").classList.add("show");
   }catch(e){ $("bErr").textContent="× "+e.message; $("bErr").classList.add("show"); }
   finally{ btn.innerHTML=old; btn.disabled=!(bFiles.iss.length&&bFiles.cand.length); }

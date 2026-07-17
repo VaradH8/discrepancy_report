@@ -276,7 +276,7 @@ def load_master(path=MASTER_FILE):
     _MASTER = allow
     return _MASTER
 
-SCOPE_LABELS = ("GLOBALLY ADDED", "LOCALLY ADDED", "GLOBALLY REMOVED", "LOCALLY REMOVED")
+SCOPE_LABELS = ("GLOBALLY ADDED", "LOCALLY ADDED", "ADDED", "REMOVED 1", "REMOVED")
 
 def compare_registered(ref_dwg, cand_dwg, sheet_name="SHT", out_xlsx=None, allow=None, scope=None):
     """Discrepancy report filtered to the master register, with each ADDED/REMOVED
@@ -333,9 +333,28 @@ def batch_registered(issued_items, cand_items, out_dir, allow=None):
     """Bulk pipeline over two drawing sets.
 
     issued_items / cand_items : list of (filename, path) — the whole issued and
-    candidate folders. Sheets are paired by number; each pair is diffed; every
-    ADDED/REMOVED tag is labelled GLOBALLY vs LOCALLY against the ISSUED set;
-    the registered report drops tags outside the master register. Writes
+    candidate folders. Sheets are paired by number; each pair is diffed against
+    the master equipment register (`allow`):
+
+      GLOBALLY ADDED : in the register, not on this sheet in the issued set,
+                        found on this sheet in the extracted (candidate) set.
+      LOCALLY ADDED  : found on this sheet in the extracted set, not in the
+                        register, but also found on another extracted sheet.
+      ADDED          : found on this sheet in the extracted set only — not in
+                        the register and not seen on any other extracted sheet.
+      REMOVED 1      : on this sheet in the issued set, gone from the
+                        extracted set, and not in the register.
+      REMOVED        : on this sheet in the issued set, gone from the
+                        extracted set, and IS in the register (the critical
+                        case — a registered piece of equipment disappeared).
+
+    A fifth, batch-wide case doesn't belong to any single sheet: register
+    entries absent from the issued set AND the extracted set entirely, across
+    every sheet. That is returned once as summary["removed2"], not per sheet
+    (the register is a whole-project list, so checking it per sheet would
+    flag most of it as missing on every sheet).
+
+    The registered report drops tags outside the master register. Writes
     SHT-XX_Registered.xlsx + SHT-XX_Changes.xlsx into out_dir.
 
     Returns (paths, summary).
@@ -350,18 +369,20 @@ def batch_registered(issued_items, cand_items, out_dir, allow=None):
             out[n] = set(scan_drawing(path))
         return out
     B, C = scan_set(issued_items), scan_set(cand_items)
-    B_sheets = {}   # tag -> issued sheets it appears on
-    for n, s in B.items():
+    C_sheets = {}   # tag -> extracted sheets it appears on
+    for n, s in C.items():
         for tg in s:
-            B_sheets.setdefault(tg, set()).add(n)
+            C_sheets.setdefault(tg, set()).add(n)
     paths, sheets = [], []
     for n in sorted(set(B) & set(C)):
         Bn, Cn = B[n], C[n]
         both, added, removed = Bn & Cn, Cn - Bn, Bn - Cn
-        def lab_for(tg, status):
+        def lab_for(tg, status, n=n):
             if status == "ADDED":
-                return "LOCALLY ADDED" if tg in B_sheets else "GLOBALLY ADDED"
-            return "LOCALLY REMOVED" if (B_sheets.get(tg, set()) - {n}) else "GLOBALLY REMOVED"
+                if _norm(tg) in allow:
+                    return "GLOBALLY ADDED"
+                return "LOCALLY ADDED" if (C_sheets.get(tg, set()) - {n}) else "ADDED"
+            return "REMOVED" if _norm(tg) in allow else "REMOVED 1"
         def build(filter_master):
             rows, groups = [], {k: [] for k in SCOPE_LABELS}
             for tg in sorted(Bn | Cn):
@@ -375,9 +396,14 @@ def batch_registered(issued_items, cand_items, out_dir, allow=None):
                     lab = lab_for(tg, status)
                     r["Status"] = lab; groups[lab].append(tg)
                     r["Match_Confidence"] = "HIGH (tag-set)"
-                    r["Notes"] = ("Also elsewhere in the issued set." if lab.startswith("LOCALLY")
-                                  else ("New in the candidate set." if status == "ADDED"
-                                        else "Gone from the entire issued set."))
+                    notes = {
+                        "GLOBALLY ADDED": "Registered equipment — new in the extracted set, not in the issued set.",
+                        "LOCALLY ADDED":  "Not registered; also found on another extracted sheet.",
+                        "ADDED":          "New in the candidate set (not registered, not found elsewhere).",
+                        "REMOVED 1":      "Gone from the extracted set; not on the master register.",
+                        "REMOVED":        "Registered equipment missing from the extracted set.",
+                    }
+                    r["Notes"] = notes[lab]
                 rows.append(r)
             for k in groups:
                 groups[k] = sorted(groups[k])
@@ -395,15 +421,19 @@ def batch_registered(issued_items, cand_items, out_dir, allow=None):
             out = os.path.join(out_dir, f"SHT-{n}_{suffix}.xlsx")
             _write(rows, stats, f"SHT_{n}", out)
             paths.append(out)
-            if filter_master:
-                entry["reg"] = {"gA": len(groups["GLOBALLY ADDED"]), "lA": len(groups["LOCALLY ADDED"]),
-                                "gR": len(groups["GLOBALLY REMOVED"]), "lR": len(groups["LOCALLY REMOVED"]),
-                                "both": nboth, "kept": len(rows)}
+            counts = {"gA": len(groups["GLOBALLY ADDED"]), "lA": len(groups["LOCALLY ADDED"]),
+                      "added": len(groups["ADDED"]), "r1": len(groups["REMOVED 1"]),
+                      "removed": len(groups["REMOVED"]), "both": nboth, "kept": len(rows)}
+            entry["reg" if filter_master else "chg"] = counts
         sheets.append(entry)
+    all_issued    = {_norm(tg) for s in B.values() for tg in s}
+    all_extracted = {_norm(tg) for s in C.values() for tg in s}
+    removed2 = sorted(allow - all_issued - all_extracted)
     summary = {"sheets": sheets,
                "unpaired_issued": sorted(set(B) - set(C)),
                "unpaired_candidate": sorted(set(C) - set(B)),
-               "master_count": len(allow)}
+               "master_count": len(allow),
+               "removed2": removed2}
     return paths, summary
 
 
@@ -589,11 +619,10 @@ def _write(rows, stats, sheet_name, out_xlsx):
     ]
     if stats.get("scope") and any(stats["scope"].values()):
         g = stats["scope"]
-        rows_sm += [[""], ["Cross-reference scope (registered rows):"],
-            [f"   GLOBALLY ADDED   : {len(g['GLOBALLY ADDED'])}  -> {', '.join(g['GLOBALLY ADDED'])}"],
-            [f"   LOCALLY ADDED    : {len(g['LOCALLY ADDED'])}  -> {', '.join(g['LOCALLY ADDED'])}"],
-            [f"   GLOBALLY REMOVED : {len(g['GLOBALLY REMOVED'])}  -> {', '.join(g['GLOBALLY REMOVED'])}"],
-            [f"   LOCALLY REMOVED  : {len(g['LOCALLY REMOVED'])}  -> {', '.join(g['LOCALLY REMOVED'])}"]]
+        rows_sm += [[""], ["Cross-reference scope (registered rows):"]]
+        for k in sorted(g):
+            if g[k]:
+                rows_sm.append([f"   {k:<16} : {len(g[k])}  -> {', '.join(g[k])}"])
     for L in rows_sm: sm.append(L)
     sm["A1"].font=Font(bold=True,size=12,name="Arial"); sm.column_dimensions["A"].width=95
     for r in range(2,sm.max_row+1): sm.cell(r,1).font=base

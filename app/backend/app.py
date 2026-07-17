@@ -131,9 +131,11 @@ def batch_endpoint(
     candidate: List[UploadFile] = File(..., description="Every new-revision drawing (whole folder)"),
 ):
     """Bulk registered pipeline: pair sheets by number across the two sets, then
-    per sheet run compare -> cross-reference (against the issued set, GLOBALLY/
-    LOCALLY) -> master-register filter. Returns a zip with SHT-XX_Registered.xlsx
-    and SHT-XX_Changes.xlsx (unfiltered) per paired sheet."""
+    per sheet classify each tag against the master equipment register (GLOBALLY
+    ADDED / LOCALLY ADDED / ADDED / REMOVED 1 / REMOVED). Returns a zip with
+    SHT-XX_Registered.xlsx and SHT-XX_Changes.xlsx (unfiltered) per paired sheet,
+    plus Removed2_Register_Gaps.txt listing register entries absent from the
+    issued and extracted sets across the whole batch."""
     import zipfile
     if not issued or not candidate:
         raise HTTPException(400, "upload both drawing sets")
@@ -155,6 +157,11 @@ def batch_endpoint(
         with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
             for f in files:
                 z.write(f, os.path.basename(f))
+            if summary.get("removed2"):
+                gaps = ("Removed 2 — registered equipment absent from BOTH the issued "
+                        "and extracted sets across the whole batch:\n\n"
+                        + "\n".join(summary["removed2"]))
+                z.writestr("Removed2_Register_Gaps.txt", gaps)
         return FileResponse(
             zpath, media_type="application/zip", filename="Registered_Reports.zip",
             headers={
