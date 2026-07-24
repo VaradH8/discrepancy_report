@@ -319,7 +319,8 @@ def scan_drawing(dwg_path):
 # pair sheets by number, diff tag-sets, label each change GLOBALLY/LOCALLY by
 # cross-referencing the ISSUED set, filter to the master register.
 _BATCH_SHEET_RES = (re.compile(r'(?:SHEET|SHT)[-_ ]?0*(\d+)', re.I),  # SHT-01, SHT01, SHT_01, SHEET 1
-                    re.compile(r'-0*(\d+)[_ ]*rev', re.I))            # ...-001-01_Rev C (no SHT marker)
+                    re.compile(r'-0*(\d+)[_ ]*rev', re.I),            # ...-001-01_Rev C (no SHT marker)
+                    re.compile(r'LEVEL[-_ ]?0*(\d+)', re.I))          # ..._LEVEL 3 (M10B REV D: level == sheet)
 
 def sheet_no_from_name(name):
     """Sheet number ('01'..) from a drawing filename, or None."""
